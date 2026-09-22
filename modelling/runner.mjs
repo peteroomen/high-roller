@@ -24,6 +24,7 @@ export function fingerprint(s) {
     moves: s.moves,
     status: s.status,
     board: s.board,
+    config:s.config,tokens:s.tokens,draft:s.draft,shop:s.shop,
   });
 }
 export function runOne({
@@ -45,7 +46,9 @@ export function runOne({
     seed,
     policy,
     status: null,
+    roundCount:config.targets.length,
     actions: 0,
+    packPurchases:0, tokenPicks:counts(), roundRewards:0, packSpending:0, shopVisits:0,
     pipFlights: 0,
     multFlights: 0,
     scoreAnimationMs: 0,
@@ -108,18 +111,7 @@ export function runOne({
     });
   }
   for (;;) {
-    if (s.status !== "playing") {
-      const cleared = s.status === "won" || s.status === "roundwon";
-      recordRound(cleared);
-      if (cleared) m.completed.push(s.round + 1);
-      if (s.status !== "roundwon") break;
-      s = nextRound(s);
-      register(s.board);
-      startActions = m.actions;
-      startEarned = m.coinsEarned;
-      startSpent = m.coinsSpent;
-      startRerolls = m.rerolls;
-    }
+    if (["won","lost"].includes(s.status)) break;
     if (m.actions >= maxActions) {
       m.status = "censored";
       recordRound(false, true);
@@ -127,7 +119,7 @@ export function runOne({
     }
     if (
       m.coinsFirstAffordableTurn === null &&
-      s.coins >= rulesFor(s.config).rerollCost
+      s.status === "playing" && s.coins >= rulesFor(s.config).rerollCost
     )
       m.coinsFirstAffordableTurn = m.actions;
     const action = agent.choose(observe(s));
@@ -136,7 +128,11 @@ export function runOne({
     if (!out) throw Error("Invalid model action");
     m.actions++;
     if (out.summary.directSpecials) m.specialSwapActions++;
-    m[action.type === "swap" ? "swaps" : "rerolls"]++;
+    if(action.type === "swap") m.swaps++;
+    if(action.type === "reroll") m.rerolls++;
+    if(action.type === "buy_pack") {m.packPurchases++;m.packSpending+=out.summary.coinsSpent;}
+    if(action.type === "visit_shop") {m.shopVisits++;m.roundRewards+=out.summary.coinsEarned;}
+    if(out.summary.tokenType) m.tokenPicks[out.summary.tokenType]++;
     m.coinsEarned += out.summary.coinsEarned;
     m.coinsSpent += out.summary.coinsSpent;
     if (action.type === "reroll") {
@@ -145,8 +141,7 @@ export function runOne({
     }
     if (out.shuffled) m.shuffles++;
     if (out.resolutionCapped) m.cappedResolutions++;
-    m.waveCounts.push(out.frames.length);
-    m.scoresPerAction.push(out.summary.score);
+    if(s.status === "playing") {m.waveCounts.push(out.frames.length);m.scoresPerAction.push(out.summary.score);}
     for (const f of out.frames) {
       for(const [key,value] of Object.entries(pacing(f))) m[key]+=value;
       register(f.before);
@@ -163,18 +158,26 @@ export function runOne({
       }
       for (const e of f.entries) {
         m.points[e.kind === "match" ? "matchBase" : "blastBase"] +=
-          e.pips * e.size;
+          out.summary.pips * e.size;
         if (e.specialType) m.specialScore[e.specialType] += e.score;
-        m.points.cascade += e.pips * e.cascade;
-        m.points.low += e.pips * e.low;
+        m.points.cascade += out.summary.pips * e.cascade;
+        m.points.low += out.summary.pips * e.low;
         if (e.kind === "match") {
-          const n = f.before[e.indices[0]].n;
+          const n = f.before[e.affected[0]].n;
           m.naturalByPip[n - 1]++;
           m.naturalScoreByPip[n - 1] += e.score;
         }
       }
     }
+    const previousStatus=s.status;
     s = out.state;
+    if(previousStatus === "playing" && ["roundwon","won","lost"].includes(s.status)) {
+      const cleared=s.status!=="lost";recordRound(cleared);
+      if(cleared)m.completed.push(s.round+1);
+    }
+    if(action.type === "next_round") {
+      startActions=m.actions;startEarned=m.coinsEarned;startSpent=m.coinsSpent;startRerolls=m.rerolls;
+    }
     register(s.board);
     if (record)
       m.trace.push({
@@ -204,7 +207,6 @@ export function runOne({
 export function replayTrace({ seed, config = DEFAULTS, trace, finalHash }) {
   let s = newGame(seed, config);
   for (const t of trace) {
-    if (s.status === "roundwon") s = nextRound(s);
     if (fingerprint(s) !== t.before)
       throw Error(`Replay diverged before action ${t.turn}`);
     const out = act(s, t.action);
@@ -213,9 +215,6 @@ export function replayTrace({ seed, config = DEFAULTS, trace, finalHash }) {
     if (fingerprint(s) !== t.after)
       throw Error(`Replay diverged after action ${t.turn}`);
   }
-  // A censored run can end immediately after an automatic round transition.
-  if (finalHash && fingerprint(s) !== finalHash && s.status === "roundwon")
-    s = nextRound(s);
   if (finalHash && fingerprint(s) !== finalHash)
     throw Error("Replay final state mismatch");
   return s;
@@ -252,7 +251,7 @@ export function wilson(success, n) {
     half = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / den;
   return [Math.max(0, center - half), Math.min(1, center + half)];
 }
-export function aggregate(runs, roundCount = 3) {
+export function aggregate(runs, roundCount = runs[0]?.roundCount ?? DEFAULTS.targets.length) {
   const n = runs.length,
     finished = runs.filter((r) => r.status !== "censored"),
     wins = runs.filter((r) => r.status === "won").length;
@@ -300,6 +299,7 @@ export function aggregate(runs, roundCount = 3) {
     scoreAnimationSeconds: quantiles(runs.map(r=>r.scoreAnimationMs/1000)),
     wavesPerAction: quantiles(runs.flatMap((r) => r.waveCounts)),
     scorePerAction: quantiles(runs.flatMap((r) => r.scoresPerAction)),
+    packPurchases:sum("packPurchases"), packSpending:sum("packSpending"),roundRewards:sum("roundRewards"),shopVisits:sum("shopVisits"),tokenPicks:merge("tokenPicks"),
     swaps: sum("swaps"),
     rerolls: sum("rerolls"),
     runsUsingReroll: runs.filter((r) => r.rerolls > 0).length,

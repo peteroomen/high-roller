@@ -3,12 +3,12 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 // One stable body colour per pip value; specials use a bone material.
 const PIP_HEX = [
-  "#bd7b70",
-  "#c4aa70",
-  "#8da178",
-  "#7997ad",
-  "#9b88b6",
-  "#b8869a",
+  "#c87468",
+  "#d1ad60",
+  "#87a56b",
+  "#6f9ebd",
+  "#a187c4",
+  "#c77f9e",
 ];
 const SPECIAL_HEX = Object.fromEntries(
   ["column", "color", "number", "bomb", "coin", "row"].map((t) => [t, "#eee6d5"]),
@@ -24,6 +24,15 @@ const SYMBOL = {
   coin: "$",
   row: "↔",
 };
+const ICON_PATHS = {
+ column:"M50 12V88 M28 34L50 12L72 34 M28 66L50 88L72 66",
+ row:"M12 50H88 M34 28L12 50L34 72 M66 28L88 50L66 72",
+ color:"M50 8L92 50L50 92L8 50Z M50 28L72 50L50 72L28 50Z",
+ number:"M38 14L28 86 M72 14L62 86 M16 38H86 M12 64H82",
+ bomb:"M50 6L60 26L80 16L77 38L98 43L81 58L90 79L67 78L59 98L45 81L24 91L25 68L4 58L23 45L14 24L37 26Z",
+ coin:"M72 29C63 13 26 17 26 36C26 58 74 42 74 65C74 85 34 89 24 72 M50 8V92"
+};
+const iconMarkup = type => `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="${ICON_PATHS[type]}" fill="${type==='bomb'?'currentColor':'none'}" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const DOTS = {
   1: [[0, 0]],
   2: [
@@ -134,11 +143,11 @@ class Board {
       ctx.fill();
     }
     if (special) {
-      ctx.fillStyle = ink;
-      ctx.font = "bold 106px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(SYMBOL[special], 80, 83);
+      ctx.save();ctx.translate(25,25);ctx.scale(1.1,1.1);
+      ctx.strokeStyle=ink;ctx.fillStyle=ink;ctx.lineWidth=7;ctx.lineCap="round";ctx.lineJoin="round";
+      const path=new Path2D(ICON_PATHS[special]);
+      if(special==='bomb')ctx.fill(path);else ctx.stroke(path);
+      ctx.restore();
     }
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -218,9 +227,9 @@ class Board {
       .filter(Boolean);
     await this.animate(duration, (t) => {
       for (const m of meshes) {
-        m.scale.setScalar(Math.max(0.01, 1 - t * t));
+        m.scale.setScalar(Math.max(.01,t<.22?1+t*.9:1.198*Math.pow(1-(t-.22)/.78,2)));
         m.rotation.z = t * 0.45;
-        m.position.z = t * 0.35;
+        m.position.z = Math.sin(t*Math.PI)*.65;
       }
       this.render();
     });
@@ -229,15 +238,17 @@ class Board {
     for(const d of b) if(d.special) { const m=this.meshes.get(d.id); if(m) m.rotation.z=amount*.07; }
     this.render();
   }
-  async wobble(indices, board) {
+  async wobble(indices, board, duration=TIMING.shake) {
     const meshes = indices.map((i) => this.meshes.get(board[i].id));
-    await this.animate(TIMING.shake, (t) => {
-      for (const m of meshes)
+    await this.animate(duration, (t) => {
+      for (const m of meshes) {
         m.rotation.z = Math.sin(t * Math.PI * 4) * (1 - t) * 0.1;
+        m.scale.setScalar(1+Math.sin(t*Math.PI)*.22);
+      }
       this.render();
     });
-    for (const m of meshes) m.rotation.z = 0;
+    for (const m of meshes) {m.rotation.z=0;m.scale.setScalar(1);}
     this.render();
   }
 }
-export { Board, SPECIAL_HEX, dieColor, pipColor, SYMBOL };
+export { iconMarkup, Board, SPECIAL_HEX, dieColor, pipColor, SYMBOL };

@@ -7,20 +7,20 @@ import "@fontsource/space-grotesk/latin-600.css";
 import "@fontsource/space-grotesk/latin-700.css";
 import {
   rulesFor,
+  PACKS, canTakeToken,
   restoreGame,
   specialMultiplier,
   COLORS,
   newGame,
   act,
-  nextRound,
   legalActions,
   preview,
   clone,
   DEFAULTS,
   TYPES,
 } from "./engine.mjs";
-import { Board, SPECIAL_HEX, dieColor, SYMBOL } from "./board.js";
-import { scoringPlan, TIMING } from "./presentation.mjs";
+import { Board, SPECIAL_HEX, dieColor, SYMBOL, iconMarkup } from "./board.js";
+import { scoringPlan, TIMING, outlinePaths } from "./presentation.mjs";
 import { CSSBoard } from "./css-board.js";
 const $ = (id) => document.getElementById(id),
   fmt = (n) => n.toLocaleString();
@@ -67,10 +67,10 @@ let busy = false,
   audioCtx;
 const cells = [];
 let viewBoard = state.board;
-$("special-list").innerHTML = TYPES.map(
-  (t) =>
-    `<div class="special-item"><span class="special-token" style="background:${SPECIAL_HEX[t]};color:#51465e">${SYMBOL[t]}</span><div><b>${names[t]}</b><small>${descriptions[t]}</small></div></div>`,
-).join("");
+function tokenBag() {
+  $("special-list").innerHTML=TYPES.map((t,i)=>`<div class="special-item"><span class="special-token">${iconMarkup(t)}</span><div><b>${names[t]} <em>${state.config.rates[i]}%</em></b><small>${descriptions[t]}</small></div></div>`).join("");
+  $("token-bag").innerHTML=TYPES.flatMap((t,i)=>state.config.rates[i]>0?[`<span class="bag-token" title="${names[t]}">${iconMarkup(t)}<b>${state.config.rates[i]}%</b></span>`]:[]).join("") || '<small>Choose a starter token</small>';
+}
 function save() {
   try {
     localStorage.setItem("piptrip-save", JSON.stringify(state));
@@ -189,6 +189,8 @@ function hud() {
   const target = state.config.targets[state.round];
   $("target").textContent = fmt(target);
   $("score").textContent = fmt(display.score);
+  $("score").dataset.digits=String(fmt(display.score).length);
+  $("target").dataset.digits=String(fmt(target).length);
   $("moves").textContent = display.moves;
   $("coins").textContent = display.coins;
   document.querySelector(".tool-cost").innerHTML =
@@ -196,7 +198,9 @@ function hud() {
   $("percent").textContent = Math.floor((display.score / target) * 100) + "%";
   $("progress").style.width =
     Math.min(100, (display.score / target) * 100) + "%";
-  $("round-label").textContent = `ROUND 0${state.round + 1} / 03`;
+  $("round-label").textContent = `ROUND ${String(state.round+1).padStart(2,"0")} / ${String(state.config.targets.length).padStart(2,"0")}`;
+  document.querySelector(".round-dots").innerHTML=state.config.targets.map((_,i)=>`<i class="${i===state.round?"active":""}"></i>`).join("");
+  tokenBag();
   document
     .querySelectorAll(".round-dots i")
     .forEach((el, i) => el.classList.toggle("active", i === state.round));
@@ -218,16 +222,16 @@ function resetCalc() {
   $("calc-detail").textContent = "Size + cascade + low-pip bonus";
   $("last-gain").textContent = "";
 }
-async function bang(id) {
+async function bang(id, tempo=1) {
   sound("match", id === "mult" ? 3 : 1);
   const el = $(id);
   try {
-    await animate(TIMING.bang, t => {
+    await animate(TIMING.bang*tempo, t => {
       if (!prefs.reduced) el.style.transform = `scale(${1+Math.sin(t*Math.PI)*.32}) rotate(${Math.sin(t*Math.PI*4)*(1-t)*5}deg)`;
     });
   } finally { el.style.transform = ""; }
 }
-async function fly(indices, text, targetId, add) {
+async function fly(indices, text, targetId, add, tempo=1) {
   const positions = indices.map(i => cells[i].getBoundingClientRect());
   const x = positions.reduce((n,r)=>n+r.x+r.width/2,0)/positions.length;
   const y = positions.reduce((n,r)=>n+r.y+r.height/2,0)/positions.length;
@@ -238,9 +242,9 @@ async function fly(indices, text, targetId, add) {
   el.style.left = x+"px"; el.style.top = y+"px";
   document.body.append(el);
   try {
-    await animate(TIMING.appear);
+    await animate(TIMING.appear*tempo);
     el.dataset.phase = "flight";
-    await animate(TIMING.flight,t=>{
+    await animate(TIMING.flight*tempo,t=>{
       const target = $(targetId).parentElement.getBoundingClientRect();
       const tx=target.x+target.width/2, ty=target.bottom+19;
       const ease=prefs.reduced ? 1 : 1-Math.pow(1-t,3);
@@ -253,33 +257,45 @@ async function fly(indices, text, targetId, add) {
     el.dataset.phase = "add";
     add();
     el.remove();
-    await bang(targetId);
+    await bang(targetId,tempo);
   } finally { el.remove(); }
 }
-function outlineGroup(entry) {
-  const indices=entry.affected ?? entry.indices, selected=new Set(indices);
-  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
-  svg.setAttribute("viewBox","0 0 600 600");
-  svg.setAttribute("class",`group-outline ${entry.kind}`);
-  let path="";
-  for(const i of indices){
-    const x=i%6*100,y=Math.floor(i/6)*100;
-    if(entry.kind === "blast") path+=`M${x+7},${y+7}h86v86h-86Z `;
-    else {
-      if(i<6 || !selected.has(i-6)) path+=`M${x},${y}h100 `;
-      if(i>=30 || !selected.has(i+6)) path+=`M${x},${y+100}h100 `;
-      if(i%6===0 || !selected.has(i-1)) path+=`M${x},${y}v100 `;
-      if(i%6===5 || !selected.has(i+1)) path+=`M${x+100},${y}v100 `;
+function outlineGroups(entries,active=-1) {
+  const nodes=entries.map((entry,i)=>{
+    const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("viewBox","-4 -4 608 608");
+    svg.setAttribute("class",`group-outline ${entry.kind}${active>=0 && i!==active?' quiet':''}`);
+    for(const d of outlinePaths(entry.affected,entry.kind==='blast')) {
+      const p=document.createElementNS(svg.namespaceURI,"path");p.setAttribute("d",d);svg.append(p);
     }
+    return svg;
+  });
+  $("effects").replaceChildren(...nodes);
+}
+async function clearDice(frame) {
+  const particles=[];
+  for(const index of frame.cleared) for(let j=0;j<3;j++) {
+    const el=document.createElement("i");el.className="clear-mote";
+    const x=(index%6+.5)/6*100,y=(Math.floor(index/6)+.5)/6*100;
+    el.style.left=x+'%';el.style.top=y+'%';
+    el.style.background=dieColor(frame.before[index]);
+    $("effects").append(el);particles.push({el,angle:(index+j*2.1)*2.399});
   }
-  const p=document.createElementNS(svg.namespaceURI,"path");p.setAttribute("d",path);svg.append(p);
-  $("effects").replaceChildren(svg);
+  await Promise.all([board.remove(frame.cleared,frame.before,TIMING.clear),animate(TIMING.clear,t=>{
+    for(const {el,angle} of particles) {
+      const distance=prefs.reduced?0:28*t;
+      el.style.transform=`translate(${Math.cos(angle)*distance}px,${Math.sin(angle)*distance-10*t}px) scale(${1-t})`;
+      el.style.opacity=String(Math.sin(t*Math.PI));
+    }
+    $("effects").querySelectorAll('svg').forEach(el=>el.style.opacity=String(1-t));
+  })]);
 }
 function marks(indices, cls) {
   indices.forEach((i) => cells[i].classList.add(cls));
 }
 async function perform(action) {
   if (busy || paused || state.status !== "playing") return;
+  clearTimeout(toastTimer); $("toast").classList.remove("show");
   selected = null;
   rerollMode = false;
   clearMarks();
@@ -317,48 +333,43 @@ async function perform(action) {
       roll: action.type === "reroll",
     });
     renderCells(outcome.initial);
+    let collected=0, mult=0;
+    $("pips").textContent="0"; $("mult").textContent="0";
     for (const frame of outcome.frames) {
       clearMarks();
       renderCells(frame.before);
       $("chain-label").textContent = frame.depth ? `${frame.depth+1} DEEP · +${frame.depth} MULT` : frame.activations.length ? "SPECIAL ACTIVATED" : "MATCH FOUND";
       $("wave-label").textContent = frame.depth ? `CASCADE ${frame.depth+1}` : "FIRST WAVE";
-      $("pips").textContent = "0";
-      $("mult").textContent = "0";
-      $("collected-total").textContent = "";
+      $("collected-total").textContent = "THIS MOVE · ALL CASCADES";
       $("calc-label").textContent = "COLLECTING PIPS";
       $("calc-detail").textContent = "";
-      let collected=0;
       for (const event of scoringPlan(frame)) {
-        if(event.kind === "pip") {
-          await board.wobble([event.index],frame.before);
+        if(event.kind==='outline') {
+          outlineGroups(event.entries);
+          await animate(TIMING.outline);
+        } else if(event.kind === "pip") {
+          await board.wobble([event.index],frame.before,TIMING.shake*event.tempo);
           await fly([event.index], `+${event.value}`, "pips",()=>{
-            collected+=event.value;
-            $("pips").textContent=collected;
-          });
-        } else {
+            collected+=event.value;$("pips").textContent=collected;
+            if(mult) $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(collected*mult)}`;
+          },event.tempo);
+        } else if(event.kind === 'group') {
           const {entry,contributions}=event;
-          outlineGroup(entry);
+          outlineGroups(frame.entries,frame.entries.indexOf(entry));
           $("calc-label").textContent=entry.label.toUpperCase();
-          $("collected-total").textContent=`${entry.pips} of ${collected} collected pips`;
-          $("pips").textContent=entry.pips;
-          $("mult").textContent="0";
-          let mult=0;
-          for(const [i,part] of contributions.entries()) {
+          for(const part of contributions) {
             $("calc-detail").textContent=part.label;
-            await fly(entry.affected ?? entry.indices,`${i ? '+' : '×'}${part.value}`,"mult",()=>{
-              mult+=part.value; $("mult").textContent=mult;
+            await fly(entry.affected,`+${part.value}`,"mult",()=>{
+              mult+=part.value;$("mult").textContent=mult;
+              $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(collected*mult)}`;
             });
           }
-          display.score+=entry.score;
-          $("last-gain").textContent=`+${fmt(entry.score)} points`;
-          hud();
+          $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(collected*mult)}`;
           await animate(TIMING.group);
-          clearMarks();
+        } else if(event.kind === 'clear') {
+          outlineGroups(frame.entries);
+          await clearDice(frame);
         }
-      }
-      if (!frame.entries.length) {
-        $("calc-label").textContent="SPECIALS";
-        $("calc-detail").textContent="No numbered dice affected";
       }
       if (frame.coins) {
         display.coins += frame.coins;
@@ -366,11 +377,13 @@ async function perform(action) {
         toast(`+${frame.coins} coin${frame.coins > 1 ? "s" : ""}`);
         hud();
       }
-      await board.remove(frame.cleared, frame.before, 210);
       clearMarks();
       await board.set(frame.after, { duration: 480 });
       renderCells(frame.after);
     }
+    display.score += outcome.summary.score;
+    hud();
+    await bang("score");
     if (outcome.shuffled) {
       toast("No moves. Free shuffle.");
       await board.set(state.board, { duration: 400, roll: true });
@@ -530,25 +543,24 @@ function closeModal() {
 }
 $("modal").addEventListener("cancel", (e) => {
   e.preventDefault();
+  if(["draft","shop"].includes(state.status)) return;
   closeModal();
 });
 const closeButton =
   '<button class="close-modal" data-close aria-label="Close dialog">\xD7</button>';
 function rules() {
   modal(
-    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: \xD71 \xB7 4 dice: \xD72 \xB7 5+ dice: \xD73.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. The chain resets after your move.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Swap with a neighbour to activate (1 move). Only its effect area scores. Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Score affected pips × the special’s Mult (normally ×2), plus the cascade bonus. Each die scores once at its highest available Mult; no match bonus is added to special Mult.</div><div class="rule">Number sweeps target the swapped number. Chained sweeps inherit that target; swapping two specials uses the most common number (ties go higher). Specials hit by another special activate once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Reach the goal before your moves run out.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
+    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: +1 Mult \xB7 4 dice: +2 \xB7 5+ dice: +3.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. All pips and all Mult add together across the entire move. Multiply once after the last cascade.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Swap with a neighbour to activate (1 move). Only its effect area scores. Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Each cleared numbered die adds its pips once. Each activated special adds its Mult (normally +2), plus its cascade bonus. Overlapping effects do not duplicate pips.</div><div class="rule">Number sweeps target the swapped number. Chained sweeps inherit that target; swapping two specials uses the most common number (ties go higher). Specials hit by another special activate once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Start with one free token; buy foil packs between rounds to choose 3 of 5 tokens. Each token adds 5 percentage points to that special’s spawn rate. Reach all six goals.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
   );
   $("rules-ledger").onclick = ledger;
 }
 function ledger() {
-  const last = state.history.at(-1);
-  modal(
-    `${closeButton}<div class="eyebrow">SCORE BREAKDOWN</div><h2>Last move.</h2>${last ? `<p>${last.waves} wave${last.waves === 1 ? "" : "s"} \xB7 ${last.specials} special${last.specials === 1 ? "" : "s"} \xB7 <strong>${fmt(last.score)} points</strong></p>${last.entries.map((e) => `<div class="ledger-entry"><div>${e.label}<small>${e.pips} pips \xD7 ${e.mult} Mult<br>${e.size} ${e.kind === "blast" ? "special" : "size"}${e.cascade ? ` + ${e.cascade} cascade` : ""}${e.low ? " + 1 low pips" : ""}</small></div><b>+${fmt(e.score)}</b></div>`).join("")}` : "<p>Make a move and every contribution will appear here.</p>"}<div class="modal-actions"><button class="primary" data-close>Back</button></div>`,
-  );
+  const last=state.history.findLast(h=>h.action.type==='swap'||h.action.type==='reroll');
+  modal(`${closeButton}<div class="eyebrow">SCORE BREAKDOWN</div><h2>Last move</h2>${last?`<p class="ledger-total">${last.pips ?? '—'} pips × ${last.mult ?? '—'} Mult = <strong>${fmt(last.score)}</strong></p><p>${last.waves} waves · pips count once, Mult adds</p>${last.entries.map(e=>`<div class="ledger-entry"><div>${e.label}<small>${e.size} ${e.kind==='blast'?'special':'size'}${e.low?` + ${e.low} low pips`:''}${e.cascade?` + ${e.cascade} cascade`:''}</small></div><b>+${e.mult} Mult</b></div>`).join('')}`:'<p>Make a move to see its contributions.</p>'}<button class="primary" data-close>Back</button>`);
 }
 function pauseMenu() {
   modal(
-    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 03</p>`,
+    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 04</p>`,
   );
   for (const k of ["sound", "fast", "reduced"])
     $("pref-" + k).onchange = (e) => {
@@ -562,8 +574,9 @@ function pauseMenu() {
     $("confirm-restart").onclick = () => startNew();
   };
 }
-async function startNew(seed = Date.now() >>> 0, config = state.config) {
+async function startNew(seed = Date.now() >>> 0, config = DEFAULTS) {
   epoch++;
+  clearTimeout(toastTimer); $("toast").classList.remove("show");
   closeModal();
   state = newGame(seed, config);
   busy = false;
@@ -578,29 +591,20 @@ async function startNew(seed = Date.now() >>> 0, config = state.config) {
   hud();
   $("chain-label").textContent = "MAKE YOUR MOVE";
   $("instruction").textContent = "Match 3 numbers \xB7 swap specials";
+  if(state.status==="draft") progressionScreen();
 }
 function endRound() {
+  if(["draft","shop"].includes(state.status)) return progressionScreen();
   const win = state.status === "won",
     lost = state.status === "lost";
   modal(
-    `<div class="eyebrow">${lost ? "RUN ENDED" : win ? "RUN COMPLETE" : "TARGET CLEARED"}</div><h2>${lost ? "Target missed" : win ? "All rounds cleared" : "Round cleared"}</h2><p>${lost ? `${fmt(state.score)} of ${fmt(state.config.targets[state.round])} points. Try a new board or replay this seed.` : win ? "Run complete." : "Coins carry to the next round."}</p><div class="stats"><div><b>${fmt(state.total)}</b><span>TOTAL POINTS</span></div><div><b>${state.bestChain}</b><span>BEST CASCADE</span></div><div><b>${state.coins}</b><span>COINS</span></div></div><div class="modal-actions"><button class="primary" id="advance">${lost || win ? "New run" : "Next round \u2192"}</button>${lost ? '<button class="secondary" id="retry">Replay seed</button>' : ""}<button class="secondary" id="end-ledger">Breakdown</button></div>`,
+    `<div class="eyebrow">${lost ? "RUN ENDED" : win ? "RUN COMPLETE" : "TARGET CLEARED"}</div><h2>${lost ? "Target missed" : win ? "All rounds cleared" : "Round cleared"}</h2><p>${lost ? `${fmt(state.score)} of ${fmt(state.config.targets[state.round])} points. Try a new board or replay this seed.` : win ? "Run complete." : "Coins carry to the next round."}</p><div class="stats"><div><b>${fmt(state.total)}</b><span>TOTAL POINTS</span></div><div><b>${state.bestChain}</b><span>BEST CASCADE</span></div><div><b>${state.coins}</b><span>COINS</span></div></div><div class="modal-actions"><button class="primary" id="advance">${lost || win ? "New run" : "Visit shop →"}</button>${lost ? '<button class="secondary" id="retry">Replay seed</button>' : ""}<button class="secondary" id="end-ledger">Breakdown</button></div>`,
   );
   $("advance").onclick = async () => {
     if (lost || win) return startNew();
-    closeModal();
-    state = nextRound(state);
-    display = { score: state.score, moves: state.moves, coins: state.coins };
-    save();
-    resetCalc();
-    clearMarks();
-    renderCells(state.board);
-    busy = true;
-    hud();
-    await board.set(state.board, { duration: 600, roll: true });
-    busy = false;
-    hud();
+    await progress({type:"visit_shop"});
   };
-  if (lost) $("retry").onclick = () => startNew(state.seed);
+  if (lost) $("retry").onclick = () => startNew(state.seed,state.initialConfig ?? DEFAULTS);
   $("end-ledger").onclick = () => {
     ledger();
     const b = document.createElement("button");
@@ -610,13 +614,39 @@ function endRound() {
     $("modal-content").append(b);
   };
 }
+async function progress(action) {
+  if(busy) return;
+  const out=act(state,action);if(!out) return;
+  state=out.state;display={score:state.score,moves:state.moves,coins:state.coins};save();hud();
+  if(state.status==='playing') {
+    closeModal();busy=true;hud();resetCalc();clearMarks();renderCells(state.board);
+    const token=epoch;
+    try {
+      await board.set(state.board,{duration:550,roll:true});
+      $("chain-label").textContent="MAKE YOUR MOVE";
+    } catch(err) {if(err.message!=="cancelled") console.error(err);}
+    finally {if(token===epoch){busy=false;hud();}}
+  } else progressionScreen();
+}
+function progressionScreen() {
+  const r=rulesFor(state.config);
+  if(state.status==='draft') {
+    const d=state.draft,starter=d.kind==='starter',remaining=d.limit-d.picks.length;
+    modal(`<div class="eyebrow">${starter?'YOUR FIRST TOKEN':d.name.toUpperCase()}</div><h2>${starter?'Pick your starter':`Choose ${remaining} more`}</h2><p class="draft-note">${starter?'Choose 1 of 3 · free':`Keep ${d.limit} of ${d.offers.length} tokens`} · +${r.tokenBoost}% spawn chance each</p><div class="token-choices ${starter?'starter':''} ${!starter&&!d.picks.length?'pack-opening':''}">${d.offers.map((t,i)=>`<button class="token-choice ${d.picks.includes(i)?'picked':''}" data-token="${i}" ${d.picks.includes(i)||!canTakeToken(state,t)?'disabled':''} aria-label="Choose ${names[t]} token"><span class="token-coin">${iconMarkup(t)}</span><b>${names[t]}</b><small>${descriptions[t]}</small><em>${d.picks.includes(i)?'✓ Added':`${state.config.rates[TYPES.indexOf(t)]}% → ${state.config.rates[TYPES.indexOf(t)]+r.tokenBoost}%`}</em></button>`).join('')}</div><div class="pack-footer">${starter?'Every other special starts at 0%.':`${d.picks.length} / ${d.limit} kept · tokens last the whole run`}</div>`);
+    document.querySelectorAll('[data-token]').forEach(el=>el.onclick=()=>progress({type:'choose_token',index:Number(el.dataset.token)}));
+  } else if(state.status==='shop') {
+    modal(`<div class="shop-heading"><div><div class="eyebrow">ROUND ${state.round+1} CLEARED</div><h2>Token shop</h2></div><span class="shop-wallet">● ${state.coins}</span></div><p class="draft-note">Round payout +${state.shop.reward} coins · tokens stack</p><div class="foil-shelf">${PACKS.map((pack,i)=>`<button class="foil-pack foil-${i}" data-pack="${pack.id}" ${state.shop.bought||state.coins<r.packCost||!TYPES.some(t=>canTakeToken(state,t))?'disabled':''} aria-label="Open ${pack.name} pack for ${r.packCost} coins"><span class="foil-seal">HIGH ROLLER</span><span class="foil-art">${iconMarkup(i===0?'number':i===1?'row':'bomb')}</span><b>${pack.name}</b><small>${pack.note}</small><span class="pack-count">5 TOKENS · PICK 3</span><em>${state.shop.bought?'SOLD OUT':`${r.packCost} ●`}</em></button>`).join('')}</div><div class="shop-bag">${TYPES.flatMap((t,i)=>state.config.rates[i]?[`<span>${iconMarkup(t)} ${state.config.rates[i]}%</span>`]:[]).join('')}</div><p class="pack-footer">One pack per shop</p><button class="primary shop-next" id="next-shop-round">Round ${state.round+2} · goal ${fmt(state.config.targets[state.round+1])} →</button>`);
+    document.querySelectorAll('[data-pack]').forEach(el=>el.onclick=()=>progress({type:'buy_pack',pack:el.dataset.pack}));
+    $('next-shop-round').onclick=()=>progress({type:'next_round'});
+  }
+}
 function lab() {
   modal(
-    `${closeButton}<div class="eyebrow">PLAYTEST CONTROLS</div><h2>Test bench.</h2><p>Changes start a fresh seeded run. Each special has its own spawn chance.</p><div class="settings"><label>Seed<input id="seed" class="wide" type="number" min="0" max="4294967295" value="${state.seed}"></label><label>Moves per round<input id="lab-moves" type="number" min="1" max="30" value="${state.config.moves}"></label>${state.config.targets.map((n, i) => `<label>Round ${i + 1} target<input id="target-${i}" type="number" min="1" max="999999" value="${n}"></label>`).join("")}${TYPES.map((t, i) => `<label>${names[t]} %<input id="rate-${i}" type="number" min="0" max="20" step="1" value="${state.config.rates[i]}"></label>`).join("")}<label>1s & 2s get +1 Mult<input id="low-bonus" type="checkbox" ${state.config.lowBonus ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" id="apply-test">Start test run</button><button class="secondary" id="reset-test">Defaults</button></div><div class="modal-actions"><button class="secondary" id="export-run">Export run log</button></div>`,
+    `${closeButton}<div class="eyebrow">PLAYTEST CONTROLS</div><h2>Test bench.</h2><p>Changes start a fresh seeded run. Each special has its own spawn chance.</p><div class="settings"><label>Seed<input id="seed" class="wide" type="number" min="0" max="4294967295" value="${state.seed}"></label><label>Moves per round<input id="lab-moves" type="number" min="1" max="30" value="${state.config.moves}"></label>${state.config.targets.map((n, i) => `<label>Round ${i + 1} target<input id="target-${i}" type="number" min="1" max="999999" value="${n}"></label>`).join("")}${TYPES.map((t, i) => `<label>${names[t]} %<input id="rate-${i}" type="number" min="0" max="20" step="1" value="0"></label>`).join("")}<label>1s & 2s get +1 Mult<input id="low-bonus" type="checkbox" ${state.config.lowBonus ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" id="apply-test">Start test run</button><button class="secondary" id="reset-test">Defaults</button></div><div class="modal-actions"><button class="secondary" id="export-run">Export run log</button></div>`,
   );
   $("apply-test").onclick = () => {
     const moves = +$("lab-moves").value,
-      targets = [0, 1, 2].map((i) => +$("target-" + i).value),
+      targets = state.config.targets.map((_, i) => +$("target-" + i).value),
       rates = TYPES.map((_, i) => +$("rate-" + i).value),
       seed = +$("seed").value;
     if (
@@ -633,12 +663,12 @@ function lab() {
       toast("Please use values within the shown limits.");
       return;
     }
-    startNew(seed, { moves, targets, rates, lowBonus: $("low-bonus").checked });
+    startNew(seed, { moves, targets, rates, draft:true, lowBonus: $("low-bonus").checked });
   };
   $("reset-test").onclick = () => startNew(Date.now() >>> 0, DEFAULTS);
   $("export-run").onclick = () => {
     const blob = new Blob(
-        [JSON.stringify({ build: "0.3.1", ...state }, null, 2)],
+        [JSON.stringify({ build: "0.4.0", ...state }, null, 2)],
         { type: "application/json" },
       ),
       url = URL.createObjectURL(blob),

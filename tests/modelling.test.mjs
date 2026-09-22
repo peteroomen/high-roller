@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULTS, newGame, act, legalMoves, wave } from "../engine.mjs";
+import { DEFAULTS, newGame as createGame, act, legalMoves, wave } from "../engine.mjs";
 import { observe, makePolicy } from "../modelling/policies.mjs";
 import {
   runOne,
@@ -9,6 +9,7 @@ import {
   pairedComparison,
   wilson,
 } from "../modelling/runner.mjs";
+const newGame=(seed,config=DEFAULTS)=>createGame(seed,{...config,draft:false});
 test("policies cannot observe actual RNG state or seed", () => {
   const s = newGame(42),
     v = observe(s);
@@ -96,7 +97,7 @@ test("action caps are reported as censored, not silently lost", () => {
   assert.equal(summary.rounds[0].deficit.n, 0);
   assert.equal(
     replayTrace({ seed: 9, trace: r.trace, finalHash: r.finalHash }).status,
-    "playing",
+    "draft",
   );
 });
 test("confidence intervals and matched comparisons have explicit denominators", () => {

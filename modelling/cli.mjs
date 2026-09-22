@@ -14,7 +14,7 @@ const args = process.argv.slice(2),
   };
 if (args.includes("--help")) {
   console.log(
-    "node modelling/cli.mjs --runs 250 --policies random,greedy,spender,rollout --samples 6 --scenarios baseline --seed-start 1 --out modelling/results/baseline\nUse --scenarios all for 19 sensitivity/ablation configurations. --replay <trace.json> validates a stored trace.",
+    "node modelling/cli.mjs --runs 250 --policies random,greedy,spender,rollout --samples 6 --scenarios baseline --seed-start 1 --out modelling/results/baseline\nUse --scenarios all for 22 sensitivity/ablation configurations. --replay <trace.json> validates a stored trace.",
   );
   process.exit(0);
 }
@@ -31,7 +31,7 @@ const runs = Number(get("--runs", "250")),
   scenarioArg = get("--scenarios", "baseline"),
   scenarios =
     scenarioArg === "all" ? Object.keys(SCENARIOS) : scenarioArg.split(","),
-  out = path.resolve(root, get("--out", "modelling/results/tap-specials"));
+  out = path.resolve(root, get("--out", "modelling/results/token-packs"));
 if (
   !Number.isInteger(runs) ||
   runs < 1 ||
@@ -83,7 +83,7 @@ const result = {
     "Only visible information reaches policies; rollout samples use independent RNG.",
     "Matched seeds start equally, but streams diverge after different actions.",
     "Confidence intervals describe seed sampling under these fixed policies.",
-    "No purchases or future content are simulated before those mechanics exist.",
+    "Starter drafts, pack purchases, token choices, payouts and six-round progression are simulated using the production engine.",
     "Pacing is reported in moves/actions/waves, not unmeasured human minutes.",
   ],
 };
@@ -170,7 +170,7 @@ fs.writeFileSync(
 );
 const pct = (n) => (n === null ? "—" : (n * 100).toFixed(1) + "%"),
   num = (n) => (n === null ? "—" : n.toFixed(2));
-let md = `# High Roller — full-run model\n\n${runs} runs per scenario/policy; seeds ${seedStart}–${seedStart + runs - 1}; ${samples} independent samples per rollout candidate.\n\nEngine SHA-256: \`${result.engineHash}\`. Model SHA-256: \`${result.modelHash}\`.\n\n| Scenario | Policy | Run wins (95% CI) | R1 clear | R2 clear | R3 clear | Runs using reroll | Censored |\n|---|---|---|---|---|---|---|---|\n`;
+let md = `# High Roller — full-run model\n\n${runs} runs per scenario/policy; seeds ${seedStart}–${seedStart + runs - 1}; ${samples} independent samples per rollout candidate.\n\nEngine SHA-256: \`${result.engineHash}\`. Model SHA-256: \`${result.modelHash}\`.\n\n| Scenario | Policy | Run wins (95% CI) | ${Array.from({length:Math.max(...Object.values(result.scenarios).map(s=>s.config.targets.length))},(_,i)=>`R${i+1} clear`).join(" | ")} | Runs using reroll | Censored |\n|---|---|---|${Array(Math.max(...Object.values(result.scenarios).map(s=>s.config.targets.length))).fill("---|").join("")}---|---|\n`;
 for (const [name, scenario] of Object.entries(result.scenarios))
   for (const [policy, s] of Object.entries(scenario.policies)) {
     md += `| ${name} | ${policy} | ${pct(s.winRate)} (${s.winRate95CI.map(pct).join("–")}) | ${s.rounds.map((r) => pct(r.clearRateAllRuns)).join(" | ")} | ${pct(s.runsUsingReroll / s.runs)} | ${s.censored} |\n`;
@@ -182,7 +182,7 @@ for (const [name, scenario] of Object.entries(result.scenarios)) {
   for (const [policy, s] of Object.entries(scenario.policies)) {
     const p = s.points,
       total = Object.values(p).reduce((a, b) => a + b, 0);
-    md += `### ${policy}\n\n- Mean ${num(s.actions.mean)} actions/run; ${num(s.wavesPerAction.mean)} waves/action; p99 ${s.wavesPerAction.p99}, maximum ${s.wavesPerAction.max}.\n- ${s.rerolls} rerolls, ${s.rerollsWithNoMatch} without an immediate match; ${s.coinsEarned} coins earned, ${s.coinsSpent} spent.\n- Score shares: match base ${pct(p.matchBase / total)}, special base ${pct(p.blastBase / total)}, cascade bonus ${pct(p.cascade / total)}, low-pip bonus ${pct(p.low / total)}.\n- ${s.specialSwapActions} special swaps. ${s.pipFlights} pip flights and ${s.multFlights} Mult flights; mean ${num(s.scoreAnimationSeconds.mean)} seconds of nominal scoring animation per run (excludes decision time, falls, pauses and device frame time).\n- ${s.shuffles} dead-board shuffles; ${s.cappedResolutions} resolution ceilings.\n\n| Special | Spawned | Triggered | Triggered by another special |\n|---|---:|---:|---:|\n`;
+    md += `### ${policy}\n\n- Mean ${num(s.actions.mean)} actions/run; ${num(s.wavesPerAction.mean)} waves/board action; p99 ${s.wavesPerAction.p99}, maximum ${s.wavesPerAction.max}.\n- ${s.rerolls} rerolls, ${s.rerollsWithNoMatch} without an immediate match; ${s.coinsEarned} coins earned, ${s.coinsSpent} spent.\n- Score shares: match base ${pct(p.matchBase / total)}, special base ${pct(p.blastBase / total)}, cascade bonus ${pct(p.cascade / total)}, low-pip bonus ${pct(p.low / total)}.\n- ${s.packPurchases} packs purchased for ${s.packSpending} coins; ${s.roundRewards} coins in round payouts; token picks: ${Object.entries(s.tokenPicks).map(([t,n])=>`${t} ${n}`).join(", ")}.\n- ${s.specialSwapActions} special swaps. ${s.pipFlights} pip flights and ${s.multFlights} Mult flights; mean ${num(s.scoreAnimationSeconds.mean)} seconds of nominal scoring animation per run (excludes decision time, falls, pauses and device frame time).\n- ${s.shuffles} dead-board shuffles; ${s.cappedResolutions} resolution ceilings.\n\n| Special | Spawned | Triggered | Triggered by another special |\n|---|---:|---:|---:|\n`;
     for (const t of Object.keys(s.specialSpawns))
       md += `| ${t} | ${s.specialSpawns[t]} | ${s.specialTriggers[t]} | ${s.specialChainTriggers[t]} |\n`;
   }

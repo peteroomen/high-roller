@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  newGame,
+  newGame as createGame,
   legalActions, previewAction, mostCommonNumber,
   preview,
   restoreGame,
@@ -15,6 +15,7 @@ import {
   clone,
   nextRound,
 } from "../engine.mjs";
+const newGame=(seed,config=DEFAULTS)=>createGame(seed,{...config,draft:false});
 const fixture = () =>
   Array.from({ length: 36 }, (_, i) => ({
     id: i,
@@ -115,7 +116,9 @@ test("last-move target completion wins before loss", () => {
   const s = newGame(42, { ...DEFAULTS, moves: 1, targets: [1, 1, 1] });
   const r = act(s, legalActions(s.board)[0]);
   assert.equal(r.state.status, "roundwon");
-  const n = nextRound(r.state);
+  const shop = nextRound(r.state);
+  assert.equal(shop.status,"shop");
+  const n = nextRound(shop);
   assert.equal(n.round, 1);
   assert.equal(n.score, 0);
   assert.equal(n.moves, 1);
@@ -210,7 +213,7 @@ test("coin scores its destination neighbours and awards one coin",()=>{
  assert.equal(f.coins,1);
  assert.equal(f.score,f.cleared.reduce((n,i)=>n+(f.before[i].n||0),0)*4);
 });
-test("overlapping special effects apply the largest Mult once, without match bonuses", () => {
+test("overlapping special effects add both multipliers but count pips once", () => {
   const b = fixture();
   special(b, 7, "column", 2);
   special(b, 8, "bomb", 4);
@@ -220,7 +223,8 @@ test("overlapping special effects apply the largest Mult once, without match bon
   ]);
   const entries = f.entries.filter((e) => e.indices.includes(1));
   assert.equal(entries.length, 1);
-  assert.equal(entries[0].mult, 5);
+  assert.equal(f.mult,8);
+  assert.equal(f.score,f.pips*8);
   assert.equal(entries[0].low, 0);
   assert.equal(
     new Set(f.entries.flatMap((e) => e.indices)).size,
@@ -232,7 +236,7 @@ test("swapped horizontal clear chains a vertical clear exactly once",()=>{
  const f=act(s,{type:"swap",a:7,b:13}).frames[0];
  assert.equal(f.activations.length,2); assert.equal(f.cleared.length,11);
  assert.equal(f.activations[1].trigger,"chain");
- assert.equal(f.score,f.cleared.reduce((sum,i)=>sum+(f.before[i].n||0),0)*2);
+ assert.equal(f.score,f.cleared.reduce((sum,i)=>sum+(f.before[i].n||0),0)*4);
 });
 test("chained number sweep inherits original target and activates only once", () => {
   const s = controlled();
@@ -262,7 +266,7 @@ test("old saves migrate without special pips and new saves resume exactly", () =
   s.version = 1;
   s.board[7].special = "bomb";
   const migrated = restoreGame(s);
-  assert.equal(migrated.version, 4);
+  assert.equal(migrated.version, 5);
   assert.equal(migrated.board[7].n, null);
   assert.equal(migrated.board[7].mult, 2);
   assert.deepEqual(restoreGame(JSON.parse(JSON.stringify(migrated))), migrated);

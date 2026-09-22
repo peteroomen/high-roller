@@ -1,5 +1,6 @@
 import {
   act,
+  PACKS, canTakeToken,
   clone,
   legalActions,
   previewAction,
@@ -12,6 +13,7 @@ export const POLICY_NAMES = ["random", "greedy", "spender", "rollout"];
 export function observe(state) {
   return {
     board: clone(state.board),
+    status:state.status, draft:clone(state.draft),shop:clone(state.shop),tokens:clone(state.tokens),
     config: clone(state.config),
     round: state.round,
     score: state.score,
@@ -19,11 +21,15 @@ export function observe(state) {
     moves: state.moves,
   };
 }
-function visibleSwaps(view) {
-  return legalActions(view.board).map((action) => ({
+function visibleSwaps(view, cache) {
+  const key=JSON.stringify(view.board.map(d=>[d.n,d.special,d.mult]));
+  if(cache?.has(key)) return cache.get(key);
+  const moves=legalActions(view.board).map((action) => ({
     action,
     immediate: previewAction(view.board, action, view.config),
   }));
+  cache?.set(key,moves);
+  return moves;
 }
 export function makePolicy(
   name,
@@ -36,7 +42,23 @@ export function makePolicy(
     name,
     choose(view) {
       decisions++;
-      const swaps = visibleSwaps(view);
+      if(view.status === "draft") {
+        const candidates=view.draft.offers.flatMap((t,index)=>!view.draft.picks.includes(index)&&canTakeToken(view,t)?[{type:"choose_token",index,token:t}]:[]);
+        const priorities={number:6,bomb:5,row:4,column:4,coin:name==="spender"?7:3,color:2+view.config.rates.reduce((a,b)=>a+b,0)/20};
+        const pick=name==="random" ? candidates[Math.floor(random(privateRandom)*candidates.length)] : candidates.sort((a,b)=>priorities[b.token]-priorities[a.token])[0];
+        if(!pick) throw Error("No eligible token choice");
+        return {type:"choose_token",index:pick.index};
+      }
+      if(view.status === "roundwon") return {type:"visit_shop"};
+      if(view.status === "shop") {
+        if(!view.shop.bought && view.coins>=rulesFor(view.config).packCost && view.config.rates.some((_,i)=>canTakeToken(view,["column","color","number","bomb","coin","row"][i])))
+          return {type:"buy_pack",pack:name==="random"?PACKS[Math.floor(random(privateRandom)*PACKS.length)].id:name==="spender"?"tricks":"assorted"};
+        return {type:"next_round"};
+      }
+      // Rules are fixed within this choice. Many special-heavy reroll samples
+      // leave the same visible board; reuse their exact production previews.
+      const previewCache=new Map();
+      const swaps = visibleSwaps(view,previewCache);
       if (!swaps.length) throw Error("Policy received a dead board");
       if (name === "random")
         return swaps[Math.floor(random(privateRandom) * swaps.length)].action;
@@ -58,7 +80,7 @@ export function makePolicy(
           completion = 0;
         for (const seed of seeds) {
           const simulated = {
-            version: 4,
+            version: 5,
             seed: 0,
             rng: seed,
             nextId: Math.max(...view.board.map((d) => d.id)) + 1,
@@ -77,7 +99,7 @@ export function makePolicy(
           if (out.state.status === "won" || out.state.status === "roundwon")
             completion++;
           else if (out.state.status === "playing") {
-            const next = visibleSwaps(observe(out.state));
+            const next = visibleSwaps(observe(out.state),previewCache);
             setup += next.length
               ? Math.min(
                   Math.max(0, need - out.summary.score),

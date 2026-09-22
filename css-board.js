@@ -1,5 +1,5 @@
 import { TIMING } from "./presentation.mjs";
-import { dieColor, pipColor, SYMBOL } from "./board.js";
+import { dieColor, pipColor, iconMarkup } from "./board.js";
 const dots = {
   1: [4],
   2: [0, 8],
@@ -28,7 +28,7 @@ class CSSBoard {
     return Array.from(
       { length: 6 },
       (_, i) =>
-        `<div class="face face-${i}" style="--die:${dieColor(d)};--pip:${pipColor(d)}">${d.special ? `<span class="special-glyph">${SYMBOL[d.special]}</span>` : `<div class="pip-grid">${Array.from({ length: 9 }, (_, p) => `<i class="${dots[d.n].includes(p) ? "pip" : ""}"></i>`).join("")}</div>`}</div>`,
+        `<div class="face face-${i}" style="--die:${dieColor(d)};--pip:${pipColor(d)}">${d.special ? `<span class="special-glyph">${iconMarkup(d.special)}</span>` : `<div class="pip-grid">${Array.from({ length: 9 }, (_, p) => `<i class="${dots[d.n].includes(p) ? "pip" : ""}"></i>`).join("")}</div>`}</div>`,
     ).join("");
   }
 
@@ -91,20 +91,20 @@ class CSSBoard {
     const ms = indices.map((i) => this.meshes.get(b[i].id));
     await this.animate(duration, (t) => {
       for (const m of ms) {
-        m.el.style.opacity = 1 - t;
-        m.cube.style.transform = `rotateX(10deg) rotateY(-12deg) scale(${1 - t * 0.8})`;
+        m.el.style.opacity = 1-Math.max(0,(t-.2)/.8);
+        m.cube.style.transform = `rotateX(10deg) rotateY(-12deg) rotateZ(${t*18}deg) scale(${t<.22?1+t*.9:1.198*Math.pow(1-(t-.22)/.78,2)})`;
       }
     });
   }
   idle(b,amount) {
     for(const d of b) if(d.special) {const m=this.meshes.get(d.id); if(m) m.cube.style.transform=`rotateX(10deg) rotateY(-12deg) rotateZ(${amount*5}deg)`;}
   }
-  async wobble(indices, b) {
+  async wobble(indices, b, duration=TIMING.shake) {
     const ms = indices.map((i) => this.meshes.get(b[i].id));
-    await this.animate(TIMING.shake, (t) => {
+    await this.animate(duration, (t) => {
       for (const m of ms)
         if (m)
-          m.cube.style.transform = `rotateX(10deg) rotateY(-12deg) rotateZ(${Math.sin(t * Math.PI * 4) * (1 - t) * 8}deg)`;
+          m.cube.style.transform = `rotateX(10deg) rotateY(-12deg) rotateZ(${Math.sin(t * Math.PI * 4) * (1 - t) * 8}deg) scale(${1+Math.sin(t*Math.PI)*.22})`;
     });
   }
 }
