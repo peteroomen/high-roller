@@ -36,7 +36,7 @@ const descriptions = {
   column: "Clears its column",
   row: "Clears its row",
   color: "Clears all special dice",
-  number: "Clears the most common number",
+  number: "Clears the swapped number",
   bomb: "Clears a 3 \xD7 3 area",
   coin: "Clears its four neighbours + 1 coin",
 };
@@ -384,7 +384,7 @@ async function perform(action) {
       outcome.frames.length > 1
         ? `${outcome.frames.length}-WAVE CASCADE`
         : "MAKE YOUR MOVE";
-    $("instruction").textContent = "Match 3 numbers \xB7 tap specials";
+    $("instruction").textContent = "Match 3 numbers \xB7 swap specials";
     busy = false;
     hud();
     if (state.status !== "playing") {
@@ -414,14 +414,10 @@ function select(i) {
     perform({ type: "reroll", index: i });
     return;
   }
-  if (state.board[i].special) {
-    perform({type:"activate",index:i});
-    return;
-  }
   if (selected === i) {
     selected = null;
     clearMarks();
-    $("instruction").textContent = "Match 3 numbers \xB7 tap specials";
+    $("instruction").textContent = "Match 3 numbers \xB7 swap specials";
     return;
   }
   if (selected !== null) {
@@ -451,10 +447,6 @@ for (let i = 0; i < 36; i++) {
   el.dataset.index = i;
   el.addEventListener("pointerdown", (e) => {
     if (busy || paused) return;
-    if (!rerollMode && state.board[i].special) {
-      pointer=null; suppressClickUntil=performance.now()+700;
-      e.preventDefault(); perform({type:"activate",index:i}); return;
-    }
     pointer = { i, x: e.clientX, y: e.clientY };
     el.setPointerCapture(e.pointerId);
   });
@@ -544,7 +536,7 @@ const closeButton =
   '<button class="close-modal" data-close aria-label="Close dialog">\xD7</button>';
 function rules() {
   modal(
-    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: \xD71 \xB7 4 dice: \xD72 \xB7 5+ dice: \xD73.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. The chain resets after your move.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Tap to activate (1 move). Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Score affected pips × the special’s Mult (normally ×2), plus the cascade bonus. Each die scores once at its highest available Mult; no match bonus is added to special Mult.</div><div class="rule">Number sweeps target the most common number (ties go to the higher number). Chained sweeps use that same target. Specials hit by another special activate once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Reach the goal before your moves run out.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
+    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: \xD71 \xB7 4 dice: \xD72 \xB7 5+ dice: \xD73.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. The chain resets after your move.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Swap with a neighbour to activate (1 move). Only its effect area scores. Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Score affected pips × the special’s Mult (normally ×2), plus the cascade bonus. Each die scores once at its highest available Mult; no match bonus is added to special Mult.</div><div class="rule">Number sweeps target the swapped number. Chained sweeps inherit that target; swapping two specials uses the most common number (ties go higher). Specials hit by another special activate once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Reach the goal before your moves run out.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
   );
   $("rules-ledger").onclick = ledger;
 }
@@ -585,7 +577,7 @@ async function startNew(seed = Date.now() >>> 0, config = state.config) {
   await board.set(state.board, { duration: 0 });
   hud();
   $("chain-label").textContent = "MAKE YOUR MOVE";
-  $("instruction").textContent = "Match 3 numbers \xB7 tap specials";
+  $("instruction").textContent = "Match 3 numbers \xB7 swap specials";
 }
 function endRound() {
   const win = state.status === "won",
@@ -646,7 +638,7 @@ function lab() {
   $("reset-test").onclick = () => startNew(Date.now() >>> 0, DEFAULTS);
   $("export-run").onclick = () => {
     const blob = new Blob(
-        [JSON.stringify({ build: "0.3.0", ...state }, null, 2)],
+        [JSON.stringify({ build: "0.3.1", ...state }, null, 2)],
         { type: "application/json" },
       ),
       url = URL.createObjectURL(blob),
@@ -678,7 +670,7 @@ $("reroll").onclick = () => {
   hud();
   $("instruction").textContent = rerollMode
     ? "Tap the top-left of a 2 \xD7 2 area."
-    : "Match 3 numbers \xB7 tap specials";
+    : "Match 3 numbers \xB7 swap specials";
 };
 $("hint").onclick = () => {
   clearMarks();
@@ -686,8 +678,8 @@ $("hint").onclick = () => {
   const list = legalActions(state.board);
   if (list.length) {
     const a=list[0];
-    marks(a.type === "activate" ? [a.index] : [a.a,a.b], "hinted");
-    $("instruction").textContent = a.type === "activate" ? "Tap the outlined special." : "Swap the two outlined dice.";
+    marks([a.a,a.b], "hinted");
+    $("instruction").textContent = "Swap the two outlined dice.";
   }
 };
 $("calc-detail").parentElement.addEventListener("dblclick", ledger);

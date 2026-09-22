@@ -58,7 +58,7 @@ export function makePolicy(
           completion = 0;
         for (const seed of seeds) {
           const simulated = {
-            version: 3,
+            version: 4,
             seed: 0,
             rng: seed,
             nextId: Math.max(...view.board.map((d) => d.id)) + 1,

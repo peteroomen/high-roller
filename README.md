@@ -22,10 +22,10 @@ Import this repository in Vercel with the Vite preset, root `./`, install `npm c
 ## Rules (0.2.0)
 
 - 6×6 board; match 3+ identical numbers horizontally or vertically. Each pip value always has the same colour, so matching colour and number are equivalent. Symbols have no pip value and never form matches.
-- Swap adjacent ordinary dice to match. Invalid swaps are free. Tap a special to activate it immediately at its current cell, costing one move.
+- Swap adjacent ordinary dice to match. Invalid swaps are free. Swap a special with a neighbour to activate it at its destination, costing one move.
 - Six symbol-only specials carry a configurable multiplier (default ×2), shown during scoring rather than on the die.
-- Column/Row clear their line. Bomb clears the clipped 3×3 area. Number sweep clears the most common numbered face (ties select the higher number). Special sweep triggers all specials. Coin clears its orthogonal neighbours and awards one coin.
-- Effects chain once per special. Chained Number sweeps use the most common number on the original wave board. Numbered dice score once at their highest applicable multiplier.
+- Column/Row clear their line. Bomb clears the clipped 3×3 area. Number sweep clears the swapped numbered face (two specials use the most common face, ties higher). Special sweep triggers all specials. Coin clears its orthogonal neighbours and awards one coin.
+- Effects chain once per special. Chained Number sweeps inherit the triggering swap’s target. Numbered dice score once at their highest applicable multiplier.
 - A normal match scores pip sum × (size Mult + low-pip bonus + cascade bonus). Size Mult: 3 dice = 1, 4 = 2, 5+ = 3. Intersections merge, counting each die once. Matches of ones/twos add +1 Mult.
 - A special scores affected pip sum × (its carried Mult + cascade bonus). Symbol dice themselves score zero pips. No size/low-pip bonus is added to special Mult.
 - Overlapping effects/matches count each numbered die once at the highest applicable Mult. Ties retain match scoring first, then the first activated special; multipliers do not stack across specials.
@@ -61,7 +61,7 @@ The engine has a defensive 80-wave resolution ceiling. It settles a fresh board 
 
 28 automated tests pass, including 250 seeded board sequences. The current pilot covers 200 complete runs across four policies plus 300 multiplier-sensitivity runs. All runs enforce exact score/coin accounting, and stored example traces replay. No action or cascade ceilings were reached.
 
-See the [current tap-specials report](modelling/results/tap-specials/report.md) for source hashes, seed counts and confidence intervals. These are bot results, not human win-rate estimates. Earlier colour-board and bone-dice results remain historical.
+See the [current swap-footprint report](modelling/results/swap-footprint/report.md) for source hashes, seed counts and confidence intervals. These are bot results, not human win-rate estimates. Earlier colour-board and bone-dice results remain historical.
 
 ```sh
 npm run simulate:smoke
@@ -100,3 +100,7 @@ Each wave collects numbered dice in board order: shake, large pip number, flight
 Fast animations shorten motion; the arrival hold remains 500 ms. Reduced motion removes idle shakes and counter punches. `presentation.mjs` owns the scoring event plan and timing constants, shared with model telemetry. Timing estimates exclude input, falling, pauses and device performance.
 
 Old saves migrate to engine version 3 and gain the horizontal special’s default 2% rate. Historical run logs require their original engine to replay. New exports and model traces use the current rules.
+
+## Swap correction (0.3.1)
+
+Specials activate by swapping again; tapping only selects. Both swipe and tap-neighbour controls work. Only the destination effect footprint is highlighted/scored: the displaced neighbour is not automatically included. If naturally inside that footprint, it is affected normally. Two swapped specials both activate. New animations, materials, horizontal clears and idle shakes remain. Engine version 4 migrates existing boards.

@@ -50,7 +50,6 @@ export function runOne({
     multFlights: 0,
     scoreAnimationMs: 0,
     swaps: 0,
-    taps: 0,
     rerolls: 0,
     coinsEarned: 0,
     coinsSpent: 0,
@@ -62,7 +61,7 @@ export function runOne({
     cappedResolutions: 0,
     totalScore: 0,
     points: { matchBase: 0, blastBase: 0, cascade: 0, low: 0 },
-    specialTapActions: 0,
+    specialSwapActions: 0,
     specialScore: counts(),
     specialSpawns: counts(),
     specialTriggers: counts(),
@@ -136,8 +135,8 @@ export function runOne({
       out = act(s, action);
     if (!out) throw Error("Invalid model action");
     m.actions++;
-    if (out.summary.directSpecials) m.specialTapActions++;
-    m[action.type === "swap" ? "swaps" : action.type === "activate" ? "taps" : "rerolls"]++;
+    if (out.summary.directSpecials) m.specialSwapActions++;
+    m[action.type === "swap" ? "swaps" : "rerolls"]++;
     m.coinsEarned += out.summary.coinsEarned;
     m.coinsSpent += out.summary.coinsSpent;
     if (action.type === "reroll") {
@@ -302,7 +301,6 @@ export function aggregate(runs, roundCount = 3) {
     wavesPerAction: quantiles(runs.flatMap((r) => r.waveCounts)),
     scorePerAction: quantiles(runs.flatMap((r) => r.scoresPerAction)),
     swaps: sum("swaps"),
-    taps: sum("taps"),
     rerolls: sum("rerolls"),
     runsUsingReroll: runs.filter((r) => r.rerolls > 0).length,
     coinsEarned: sum("coinsEarned"),
@@ -313,7 +311,7 @@ export function aggregate(runs, roundCount = 3) {
     shuffles: sum("shuffles"),
     cappedResolutions: sum("cappedResolutions"),
     points: merge("points"),
-    specialTapActions: sum("specialTapActions"),
+    specialSwapActions: sum("specialSwapActions"),
     specialScore: merge("specialScore"),
     specialSpawns: merge("specialSpawns"),
     specialTriggers: merge("specialTriggers"),

@@ -22,7 +22,7 @@ The CLI writes summary JSON, a Markdown report, CSV/JSONL run-level data, and ex
 | System                                   | Authoritative engine path       | Model coverage / metrics                                                                            |
 | ---------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Initial board, colour/number supply      | `newGame`, `freshBoard`, `die`  | Actual generated board, visible special spawns, deterministic seeds                                 |
-| Adjacent swaps and legal-move search     | `adjacent`, `legalActions`, `act` | All legal ordinary matches and special taps available to policies; invalid actions fail a model run                             |
+| Adjacent swaps and legal-move search     | `adjacent`, `legalActions`, `act` | All legal ordinary matches and special swaps available to policies; invalid actions fail a model run                             |
 | Horizontal/vertical matches and overlaps | `matches`, `wave`               | Group-size frequencies, pip-value frequencies, no duplicate clears                                  |
 | Pips and multipliers                     | `wave`                          | Exact accounting split into match base, blast base, cascade bonus and low-pip bonus                 |
 | Falling, refills and cascades            | `collapse`, `act`               | Full resolution, depth histograms, mean/tail/max waves, new special spawns                          |
@@ -40,10 +40,10 @@ Per-type trigger counts are descriptive exposure measurements, not causal lift. 
 
 ## Policies
 
-- **Random:** chooses uniformly among legal swaps and special taps. No coin spending. A weak baseline.
+- **Random:** chooses uniformly among legal swaps, including specials. No coin spending. A weak baseline.
 - **Greedy:** takes the largest guaranteed first-wave score including visible special chains. No coin spending. This isolates the match-selection baseline.
 - **Spender:** greedy moves; when affordable, rerolls immediately. Samples all 25 areas and chooses using expected immediate gain plus the next board's visible opportunity. This is an intentionally aggressive economy control.
-- **Rollout:** independently samples complete cascades for every legal swap or tap, adds a discounted next-board opportunity and a coin shadow price; rerolls when estimated gain plus setup exceeds retaining the current move and coin value. This is a heuristic planner, not an optimal or human-equivalent agent.
+- **Rollout:** independently samples complete cascades for every legal swap, adds a discounted next-board opportunity and a coin shadow price; rerolls when estimated gain plus setup exceeds retaining the current move and coin value. This is a heuristic planner, not an optimal or human-equivalent agent.
 
 The observation API excludes actual run RNG, seed and future state. Samples use a separate policy random stream and common samples across candidate actions. The default six samples per candidate is inexpensive and noisy; increase it to assess policy sensitivity. Two policies can legitimately rank differently with other sample counts, and a more elaborate heuristic is not guaranteed to outperform greedy.
 
@@ -78,3 +78,7 @@ Current report: [tap-specials/report.md](results/tap-specials/report.md). All fo
 Telemetry counts taps separately from swaps and rerolls, per-type score/trigger/chain exposure, and exact scoring presentation events. Empty special groups still show their multiplier with zero points. Every numbered pip flies once before any group multipliers. Normal-speed duration is calculated from shared timing constants; it is not an estimate of human session length. Holds remain 500 ms in Fast mode.
 
 Reports before 0.3.0 model historical swap activation. Do not replay their traces against this engine.
+
+## Swap correction (0.3.1) — current rules
+
+All policies now choose special swaps through `legalActions` and the same production preview. Tap actions are invalid. Telemetry separates special swap actions and chained activations; displaced dice are only scored if naturally inside the effect footprint. Number sweeps use the swapped face, or the most common face for a special pair. Engine tests cover both swap directions, row/column footprints, excluded neighbours, number targeting, coin geometry and chain scoring. Current smoke-sized full-run report: [swap-footprint/report.md](results/swap-footprint/report.md). Earlier tap results are historical.

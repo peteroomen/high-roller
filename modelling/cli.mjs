@@ -182,7 +182,7 @@ for (const [name, scenario] of Object.entries(result.scenarios)) {
   for (const [policy, s] of Object.entries(scenario.policies)) {
     const p = s.points,
       total = Object.values(p).reduce((a, b) => a + b, 0);
-    md += `### ${policy}\n\n- Mean ${num(s.actions.mean)} actions/run; ${num(s.wavesPerAction.mean)} waves/action; p99 ${s.wavesPerAction.p99}, maximum ${s.wavesPerAction.max}.\n- ${s.rerolls} rerolls, ${s.rerollsWithNoMatch} without an immediate match; ${s.coinsEarned} coins earned, ${s.coinsSpent} spent.\n- Score shares: match base ${pct(p.matchBase / total)}, special base ${pct(p.blastBase / total)}, cascade bonus ${pct(p.cascade / total)}, low-pip bonus ${pct(p.low / total)}.\n- ${s.specialTapActions} special taps. ${s.pipFlights} pip flights and ${s.multFlights} Mult flights; mean ${num(s.scoreAnimationSeconds.mean)} seconds of nominal scoring animation per run (excludes decision time, falls, pauses and device frame time).\n- ${s.shuffles} dead-board shuffles; ${s.cappedResolutions} resolution ceilings.\n\n| Special | Spawned | Triggered | Triggered by another special |\n|---|---:|---:|---:|\n`;
+    md += `### ${policy}\n\n- Mean ${num(s.actions.mean)} actions/run; ${num(s.wavesPerAction.mean)} waves/action; p99 ${s.wavesPerAction.p99}, maximum ${s.wavesPerAction.max}.\n- ${s.rerolls} rerolls, ${s.rerollsWithNoMatch} without an immediate match; ${s.coinsEarned} coins earned, ${s.coinsSpent} spent.\n- Score shares: match base ${pct(p.matchBase / total)}, special base ${pct(p.blastBase / total)}, cascade bonus ${pct(p.cascade / total)}, low-pip bonus ${pct(p.low / total)}.\n- ${s.specialSwapActions} special swaps. ${s.pipFlights} pip flights and ${s.multFlights} Mult flights; mean ${num(s.scoreAnimationSeconds.mean)} seconds of nominal scoring animation per run (excludes decision time, falls, pauses and device frame time).\n- ${s.shuffles} dead-board shuffles; ${s.cappedResolutions} resolution ceilings.\n\n| Special | Spawned | Triggered | Triggered by another special |\n|---|---:|---:|---:|\n`;
     for (const t of Object.keys(s.specialSpawns))
       md += `| ${t} | ${s.specialSpawns[t]} | ${s.specialTriggers[t]} | ${s.specialChainTriggers[t]} |\n`;
   }
@@ -199,7 +199,7 @@ md +=
   "\n\nCensored runs are retained in the denominator and are not counted as wins. Any nonzero censorship or resolution ceiling needs investigation before drawing balance conclusions. Sensitivity results are screening evidence, not automatic tuning instructions; confirm changes on held-out seeds.\n";
 fs.writeFileSync(path.join(out, "report.md"), md);
 const csv = [
-  "scenario,policy,seed,status,totalScore,swaps,taps,rerolls,coinsEarned,coinsSpent,coinsEnding,bestWaveCount,shuffles,cappedResolutions",
+  "scenario,policy,seed,status,totalScore,swaps,rerolls,coinsEarned,coinsSpent,coinsEnding,bestWaveCount,shuffles,cappedResolutions",
 ];
 for (const [key, rows] of allRows)
   for (const r of rows)
@@ -211,7 +211,6 @@ for (const [key, rows] of allRows)
         r.status,
         r.totalScore,
         r.swaps,
-        r.taps,
         r.rerolls,
         r.coinsEarned,
         r.coinsSpent,

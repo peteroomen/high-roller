@@ -107,11 +107,11 @@ function legalMoves(b) {
   const out = [];
   for (let a = 0; a < 36; a++)
     for (const c of [a % 6 < 5 ? a + 1 : -1, a < 30 ? a + 6 : -1]) {
-      if (c < 0 || b[a].special || b[c].special) continue;
+      if (c < 0) continue;
       swap(b, a, c);
       const groups = matches(b);
       swap(b, a, c);
-      if (groups.length)
+      if (groups.length || b[a].special || b[c].special)
         out.push({ a, b: c, groups });
     }
   return out;
@@ -136,7 +136,7 @@ function freshBoard(s) {
 }
 function newGame(seed = Date.now() >>> 0, config = DEFAULTS) {
   const s = {
-    version: 3,
+    version: 4,
     seed: seed >>> 0,
     rng: seed >>> 0,
     nextId: 1,
@@ -171,21 +171,22 @@ function effect(b, i, type, targetN = b[i].n) {
   });
 }
 function legalActions(b) {
-  return [...legalMoves(b).map(({a,b}) => ({type:"swap",a,b})),
-    ...b.flatMap((d,index) => d.special ? [{type:"activate",index}] : [])];
+  return legalMoves(b).map(({a,b}) => ({type:"swap",a,b}));
 }
 function mostCommonNumber(b) {
   const counts = Array(7).fill(0);
   for (const d of b) if (numbered(d)) counts[d.n]++;
   return [6,5,4,3,2,1].reduce((best,n) => counts[n] > counts[best] ? n : best,6);
 }
-function activationRoots(b,index) {
-  return [{index,targetN:mostCommonNumber(b),trigger:"tap"}];
+// Positions are after swapping. Only the effect footprint is claimed; the
+// partner never receives an extra inclusion simply for having been swapped.
+function swapRoots(b,a,c) {
+  return [a,c].filter(index=>b[index].special).map(index=>({
+    index, targetN: b[index===a?c:a].n ?? mostCommonNumber(b), trigger:"swap"
+  }));
 }
 function previewAction(b,action,config) {
   if(action.type === "swap") return preview(b,action.a,action.b,config);
-  if(action.type === "activate" && Number.isInteger(action.index) && b[action.index]?.special)
-    return wave(b,matches(b),0,config,activationRoots(b,action.index));
   return null;
 }
 function wave(b, groups, depth, config, roots = []) {
@@ -231,7 +232,7 @@ function wave(b, groups, depth, config, roots = []) {
       index: r.index,
       type: d.special,
       mult: size,
-      trigger: direct.has(r.index) ? "tap" : "chain",
+      trigger: direct.has(r.index) ? "swap" : "chain",
       targetN: r.targetN,
     });
     if (d.special === "coin") coins++;
@@ -301,13 +302,13 @@ function wave(b, groups, depth, config, roots = []) {
 function restoreGame(saved) {
   if (
     !saved ||
-    ![1, 2, 3].includes(saved.version) ||
+    ![1, 2, 3, 4].includes(saved.version) ||
     saved.board?.length !== 36 ||
     !saved.board.every((d) => TYPES.includes(d.special) || numbered(d))
   )
     return null;
   const s = clone(saved);
-  s.version = 3;
+  s.version = 4;
   s.config.rates = TYPES.map((_,i) => s.config.rates[i] ?? (saved.version < 3 ? DEFAULTS.rates[i] : 0));
   s.board = s.board.map((d) =>
     d.special
@@ -345,14 +346,12 @@ function act(original, action) {
     rules = rulesFor(original.config);
   let roots = [];
   if (action.type === "swap") {
-    if (!adjacent(action.a, action.b) || s.board[action.a].special || s.board[action.b].special) return null;
+    if (!adjacent(action.a, action.b)) return null;
     swap(s.board, action.a, action.b);
+    roots = swapRoots(s.board, action.a, action.b);
     if (!matches(s.board).length && !roots.length) return null;
     s.moves--;
-  } else if (action.type === "activate") {
-    if (!Number.isInteger(action.index) || !s.board[action.index]?.special) return null;
-    roots = activationRoots(s.board,action.index);
-    s.moves--;
+
   } else if (action.type === "reroll") {
     if (
       s.coins < rules.rerollCost ||
@@ -409,10 +408,10 @@ function act(original, action) {
   }
   const summary = {
     action: clone(action),
-    ruleVersion: 3,
+    ruleVersion: 4,
     directSpecials: frames
       .flatMap((f) => f.activations)
-      .filter((a) => a.trigger === "tap").length,
+      .filter((a) => a.trigger === "swap").length,
     resolutionCapped,
     shuffled,
     coinsEarned: frames.reduce((a, f) => a + f.coins, 0),
@@ -450,11 +449,12 @@ function nextRound(s) {
   return n;
 }
 function preview(b, a, c, config) {
-  if (!adjacent(a, c) || b[a].special || b[c].special) return null;
+  if (!adjacent(a, c)) return null;
   const next = clone(b);
   swap(next, a, c);
   const g = matches(next);
-  return g.length ? wave(next, g, 0, config) : null;
+  const roots=swapRoots(next,a,c);
+  return g.length || roots.length ? wave(next,g,0,config,roots) : null;
 }
 export {
   legalActions, previewAction, mostCommonNumber,
