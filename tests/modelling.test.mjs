@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULTS, newGame as createGame, act, legalMoves, wave } from "../engine.mjs";
+import { DEFAULTS as CURRENT_DEFAULTS, newGame as createGame, act, legalMoves, wave } from "../engine.mjs";
 import { observe, makePolicy } from "../modelling/policies.mjs";
 import {
   runOne,
@@ -9,6 +9,7 @@ import {
   pairedComparison,
   wilson,
 } from "../modelling/runner.mjs";
+const DEFAULTS={...CURRENT_DEFAULTS,rules:{...CURRENT_DEFAULTS.rules,sizeMult:[1,2,3,3]}};
 const newGame=(seed,config=DEFAULTS)=>createGame(seed,{...config,draft:false});
 test("policies cannot observe actual RNG state or seed", () => {
   const s = newGame(42),
@@ -79,7 +80,7 @@ test("cascade and size sensitivities use the real engine", () => {
     s.board[i].special = null;
   });
   assert.equal(
-    wave(s.board, [[0, 1, 2]], 2, { ...DEFAULTS, rules: { cascadeStep: 0 } })
+    wave(s.board, [[0, 1, 2]], 2, { ...DEFAULTS, rules: { ...DEFAULTS.rules, cascadeStep: 0 } })
       .score,
     15,
   );

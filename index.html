@@ -21,7 +21,7 @@
     <header>
       <a class="wordmark" href="#" aria-label="High Roller"
         ><span class="logo-die">⁙</span> HIGH ROLLER<span class="edition"
-          >PLAYTEST 04</span
+          >PLAYTEST 05</span
         ></a
       >
       <div class="header-right">
@@ -45,10 +45,12 @@
       </aside>
       <section class="play-area" aria-label="Dice board">
         <div class="board-heading">
-          <span id="round-label">ROUND 01 / 06</span>
+          <span id="round-label">STAGE 1 / 3 · 1 / 3</span>
           <div class="round-dots"><i class="active"></i><i></i><i></i></div>
           <span id="chain-label">MAKE YOUR MOVE</span>
         </div>
+        <div id="match-levels" aria-label="Match tier levels"></div>
+        <div id="trinket-rack" aria-label="Your trinkets"></div>
         <div class="tray">
           <div class="wood-inset">
             <div id="board">
@@ -81,7 +83,7 @@
       <aside class="score-rail">
         <section class="score-card">
           <div class="eyebrow">GOAL</div>
-          <div id="target" class="target">260</div>
+          <div id="target" class="target">220</div>
           <div class="target-line"></div>
           <div class="score-caption">
             <span>YOUR SCORE</span><span id="percent">0%</span>
@@ -102,9 +104,9 @@
           <div class="equation">
             <div class="calc-pips"><b id="pips">0</b><small>PIPS</small></div>
             <span class="times">×</span>
-            <div class="calc-mult"><b id="mult">1</b><small>MULT</small></div>
+            <div class="calc-mult"><b id="mult">0</b><small>MULT</small></div>
           </div>
-          <div id="calc-detail">Size + cascade + low-pip bonus</div>
+          <div id="calc-detail">One Mult total per group</div>
           <div id="last-gain"></div>
         </section>
         <button id="ledger" class="ledger-button">

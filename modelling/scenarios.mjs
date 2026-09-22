@@ -1,6 +1,16 @@
 import { DEFAULTS, clone } from "../engine.mjs";
 export const SCENARIOS = {
   baseline: {},
+  "no-upgrades":{disableUpgrades:true},
+  "no-trinkets":{disableTrinkets:true},
+  "boosts-half":{rules:{levelBoost:[1,2,3,4],trinketPips:[8,16,28,44],trinketMult:[1,2,4,6]}},
+  "boosts-double":{rules:{levelBoost:[4,8,12,16],trinketPips:[32,64,112,176],trinketMult:[4,8,16,24]}},
+  "trinket-cost-3":{rules:{trinketCost:3}},
+  "multi-pack-cost-6":{rules:{multiPackCost:6}},
+  "tokens-1-percent":{rules:{tokenBoost:1}},
+  "tokens-5-percent":{rules:{tokenBoost:5}},
+  "special-cap-50":{rules:{specialRateCap:50}},
+  ...Object.fromEntries([3,4,5,6].flatMap(t=>['pips','mult'].map(stat=>[`start-${stat}-${t}`,{trinkets:[`${stat}-${t}`]}]))),
   "pack-cost-7":{rules:{packCost:7}},
   "round-reward-3":{rules:{roundReward:3}},
   "tokens-3-percent":{rules:{tokenBoost:3}},

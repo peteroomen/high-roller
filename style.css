@@ -1379,3 +1379,76 @@ dialog { background:#2b2535; }
 @media(max-width:700px) { .score[data-digits="6"],.target[data-digits="6"] {font-size:clamp(16px,5vw,21px)} .score[data-digits="7"],.target[data-digits="7"],.score[data-digits="8"],.target[data-digits="8"] {font-size:16px} }
 
 @media(max-width:700px) { .score[data-digits="5"],.target[data-digits="5"] {font-size:clamp(18px,6vw,26px)} }
+
+/* Playtest 05: numbered tokens and a rack of scoring pieces. */
+#match-levels {display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:0 0 10px}
+#match-levels>span {display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #665674;border-radius:6px;background:#342c40}
+#match-levels b {font:700 20px 'Space Grotesk';color:#eddfbc}
+#match-levels small {font-size:10px;color:#c5b4d5}
+#match-levels em {margin-left:auto;font-style:normal;font-size:12px;color:#e4c887}
+#trinket-rack {display:flex;gap:10px;min-height:55px;margin:0 0 10px;align-items:center;justify-content:center}
+.empty-rack {font-size:10px;letter-spacing:1.5px;color:#a898b7;border:1px dashed #5e506d;border-radius:7px;width:100%;text-align:center;padding:15px}
+.trinket-die {flex-shrink:0;display:flex;align-items:center;justify-content:center;flex-direction:column;width:57px;height:57px;border-radius:12px;background:#b39bc9;color:#31283c;box-shadow:inset 1px 2px 0 #e8d9f4,0 4px 0 #6b567f;border:1px solid #bbaaC7;transform:rotate(-5deg)}
+.trinket-die.pips {background:#dfc48b;box-shadow:inset 1px 2px 0 #fff0c9,0 4px 0 #8e7649;border-color:#ead5a9;transform:rotate(5deg)}
+.trinket-die b {font:700 29px/1 'Space Grotesk';margin:0!important}
+.trinket-die small {font:700 8px/1.4 'Space Grotesk';letter-spacing:1px;color:inherit!important;flex:0!important}
+.owned-trinket {display:flex;align-items:center;gap:9px;padding:4px 8px 6px;border:1px solid #625271;border-radius:8px;background:#332b3f;transform-origin:center;position:relative}
+.owned-trinket .trinket-die {width:37px;height:37px;border-radius:8px}
+.owned-trinket .trinket-die b {font-size:21px}
+.owned-trinket .trinket-die small {font-size:6px}
+.owned-trinket>span:last-child {color:#e8d4f6;font:700 15px 'Space Grotesk'}
+.owned-trinket>span:last-child small {display:block;font:400 9px 'DM Sans';color:#c6b2d5}
+.owned-trinket.triggering {border-color:#f3da9b;box-shadow:0 0 20px #d6b6e55c;z-index:7}
+.number-token {background:#c9b3de;box-shadow:0 4px 0 #79628d,inset 0 0 0 4px #a18ab7;font:700 34px 'Space Grotesk'}
+.number-art {display:grid;place-items:center;font:700 48px 'Space Grotesk'}
+.foil-shelf {grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.foil-pack {min-height:207px}
+.foil-pack b {font-size:16px}
+.foil-0 {background:linear-gradient(115deg,#967faf,#eadbff 22%,#a891c4 32%,#cab0e8 50%,#faf2ff 53%,#afb4e1 78%,#b7a0d1)}
+.shop-section {display:flex;justify-content:space-between;align-items:center;margin:19px 0 12px;font-size:13px}
+.shop-section small {font-size:11px;color:#bdabc9}
+.trinket-shelf {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.trinket-card {display:flex;flex-direction:column;align-items:center;gap:12px;border-radius:9px;background:#3c3249;border:1px solid #756284;padding:17px 8px 12px}
+.trinket-card:hover:not(:disabled) {background:#4b3e5a;border-color:#d9bf80}
+.trinket-card>b {font-size:12px}
+.trinket-card>small {color:#d1c0df;font-size:11px;line-height:1.5}
+.trinket-card em {font-style:normal;color:#efd496;font-size:12px;font-weight:700}
+.owned-shelf {display:flex;gap:8px;flex-wrap:wrap}
+.sell-trinket {display:flex;align-items:center;gap:10px;padding:9px 12px;background:#352c40;border:1px solid #6d597d;border-radius:7px;font-size:11px}
+.sell-trinket .trinket-die {width:32px;height:32px;border-radius:7px}
+.sell-trinket .trinket-die b {font-size:18px}
+.sell-trinket .trinket-die small {font-size:5px}
+.sell-trinket>span:last-child small {display:block;color:#dbc088;font-size:10px;margin-top:4px}
+.ledger-trinket {padding:0 0 12px 12px;color:#d3bbeb;font-size:12px}
+@media(max-width:700px) {
+ #match-levels {gap:5px;margin-bottom:8px}
+ #match-levels>span {padding:5px;gap:5px;flex-wrap:wrap}
+ #match-levels b {font-size:16px} #match-levels small {font-size:8px} #match-levels em {font-size:10px}
+ #trinket-rack {gap:5px;min-height:44px;margin-bottom:8px}
+ .owned-trinket {gap:5px;padding:4px 5px 6px}
+ .owned-trinket .trinket-die {width:30px;height:30px;border-radius:7px}
+ .owned-trinket .trinket-die b {font-size:17px}
+ .owned-trinket .trinket-die small {font-size:5px}
+ .owned-trinket>span:last-child {font-size:12px}
+ .owned-trinket>span:last-child small {font-size:8px}
+ .empty-rack {padding:10px;font-size:9px}
+ .foil-shelf {grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px}
+ .foil-pack {min-height:178px;padding:15px 9px 12px;gap:6px}
+ .foil-art {width:38px;height:38px;margin:2px 0}
+ .foil-pack small {min-height:15px}
+ .foil-pack b {font-size:16px}
+ .number-art {font-size:37px}
+ .trinket-card {gap:10px;padding:14px 6px 10px}
+ .trinket-card>b {font-size:11px} .trinket-card>small {font-size:10px}
+ .trinket-die {width:45px;height:45px;border-radius:10px}
+ .trinket-die b {font-size:25px}
+}
+@media(max-width:620px) {
+ header {padding-top:12px;padding-bottom:8px}
+ .table {gap:10px}
+ .equation {margin-bottom:32px}
+ #collected-total {min-height:12px;line-height:1.2}
+ #calc-detail {min-height:11px;line-height:1.2}
+ #last-gain {min-height:11px;margin-top:0;line-height:1.2}
+ .board-foot {margin:10px 2px 8px}
+}

@@ -1,20 +1,22 @@
 // Scoring events and timings are shared by the UI and pacing model.
-export const TIMING = Object.freeze({shake:220,appear:140,flight:330,hold:500,bang:150,group:180,clear:420,outline:160});
+export const TIMING = Object.freeze({shake:110,appear:55,flight:190,hold:180,multHold:300,bang:90,group:70,clear:300,outline:90});
 export const pipTempo = ordinal => Math.max(.3, Math.pow(.82,ordinal));
 export function scoringPlan(frame) {
   const pips=frame.entries.flatMap(e=>e.indices).sort((a,b)=>a-b).map((index,ordinal)=>({kind:'pip',index,value:frame.before[index].n,tempo:pipTempo(ordinal)}));
   const groups=frame.entries.map(entry=>({kind:'group',entry,contributions:[
-    {value:entry.size,label:entry.kind==='blast'?'special':'match size'},
-    ...(entry.low?[{value:entry.low,label:'low pips'}]:[]),
-    ...(entry.cascade?[{value:entry.cascade,label:'cascade'}]:[])]}));
+    {value:entry.mult-(entry.trinketMult??0),label:entry.kind==='blast'?'special Mult':'match Mult'},
+    ...(entry.trinkets??[]).map(t=>({value:t.value,label:t.name,target:t.stat,source:t.id}))]}));
   return [{kind:'outline',entries:frame.entries},...pips,...groups,{kind:'clear',indices:frame.cleared}];
 }
 export function pacing(frame) {
   const plan=scoringPlan(frame),pips=plan.filter(x=>x.kind==='pip'),groups=plan.filter(x=>x.kind==='group');
-  const multFlights=groups.reduce((n,g)=>n+g.contributions.length,0);
-  return {pipFlights:pips.length,multFlights,scoreAnimationMs:TIMING.outline+TIMING.clear+
+  const parts=groups.flatMap(g=>g.contributions);
+  const trinketFlights=parts.filter(p=>p.source).length;
+  const pipFlights=pips.length+parts.filter(p=>p.target==='pips').length;
+  const multFlights=parts.filter(p=>p.target!=='pips').length;
+  return {pipFlights,multFlights,trinketFlights,scoreAnimationMs:TIMING.outline+TIMING.clear+
     pips.reduce((n,p)=>n+TIMING.hold+p.tempo*(TIMING.shake+TIMING.appear+TIMING.flight+TIMING.bang),0)+
-    multFlights*(TIMING.appear+TIMING.flight+TIMING.hold+TIMING.bang)+groups.length*TIMING.group};
+    trinketFlights*TIMING.shake+parts.length*(TIMING.appear+TIMING.flight+TIMING.multHold+TIMING.bang)+groups.length*TIMING.group};
 }
 // Trace the outside of a connected match, then round every corner with a
 // quadratic segment. Special footprints use individual rounded boxes.

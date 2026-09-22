@@ -1,13 +1,13 @@
 import {
   act,
-  PACKS, canTakeToken,
+  PACKS, canTakeToken, canBuyPack, TRINKETS, trinketValue,
   clone,
   legalActions,
   previewAction,
   rulesFor,
   random,
 } from "../engine.mjs";
-export const POLICY_NAMES = ["random", "greedy", "spender", "rollout"];
+export const POLICY_NAMES = ["random", "greedy", "spender", "rollout", "builder", "specialist"];
 // The policy receives only information visible to a player. Never pass the
 // game's RNG, run seed, future boards or outcome traces to a decision function.
 export function observe(state) {
@@ -44,15 +44,34 @@ export function makePolicy(
       decisions++;
       if(view.status === "draft") {
         const candidates=view.draft.offers.flatMap((t,index)=>!view.draft.picks.includes(index)&&canTakeToken(view,t)?[{type:"choose_token",index,token:t}]:[]);
-        const priorities={number:6,bomb:5,row:4,column:4,coin:name==="spender"?7:3,color:2+view.config.rates.reduce((a,b)=>a+b,0)/20};
+        const priorities={"multi-3":12,"multi-4":8,"multi-5":5,"multi-6":3,number:6,bomb:5,row:4,column:4,coin:name==="spender"?7:3,color:2+view.config.rates.reduce((a,b)=>a+b,0)/20};
         const pick=name==="random" ? candidates[Math.floor(random(privateRandom)*candidates.length)] : candidates.sort((a,b)=>priorities[b.token]-priorities[a.token])[0];
         if(!pick) throw Error("No eligible token choice");
         return {type:"choose_token",index:pick.index};
       }
       if(view.status === "roundwon") return {type:"visit_shop"};
       if(view.status === "shop") {
-        if(!view.shop.bought && view.coins>=rulesFor(view.config).packCost && view.config.rates.some((_,i)=>canTakeToken(view,["column","color","number","bomb","coin","row"][i])))
-          return {type:"buy_pack",pack:name==="random"?PACKS[Math.floor(random(privateRandom)*PACKS.length)].id:name==="spender"?"tricks":"assorted"};
+        const r=rulesFor(view.config);
+        const items=(view.shop.offers??[]).filter(id=>!view.shop.sold.includes(id)&&!view.config.trinkets.includes(id));
+        const preferred=items.map(id=>TRINKETS.find(t=>t.id===id)).sort((a,b)=>a.tier-b.tier || (a.stat==='pips'?-1:1));
+        // Three deliberately different economies: special-only control, match builder,
+        // and mixed builds. No sealed packs or future shop contents are observed.
+        const owned=view.config.trinkets.map(id=>TRINKETS.find(t=>t.id===id)).sort((a,b)=>b.tier-a.tier);
+        if(name!=='specialist' && owned.length>=r.trinketSlots && preferred.length && preferred[0].tier<owned[0].tier && view.coins+Math.floor(r.trinketCost/2)>=r.trinketCost)
+          return {type:'sell_trinket',id:owned[0].id};
+        const wantItem=name!=='specialist' && view.config.trinkets.length<r.trinketSlots && view.coins>=r.trinketCost && preferred.length;
+        if(wantItem && (name==='builder'||view.shop.bought||view.round%2===1||name==='random'&&random(privateRandom)<.5)) {
+          const item=name==='random'?preferred[Math.floor(random(privateRandom)*preferred.length)]:preferred[0];
+          return {type:'buy_trinket',id:item.id};
+        }
+        const packs=PACKS.filter(p=>canBuyPack(view,p));
+        if(packs.length) {
+          const rate=view.config.rates.reduce((a,b)=>a+b,0);
+          const id=name==='builder'?'multi':name==='specialist'?'assorted':rate>=24?'multi':name==='spender'?'tricks':'assorted';
+          const pack=name==='random'?packs[Math.floor(random(privateRandom)*packs.length)]:packs.find(p=>p.id===id)??packs[0];
+          return {type:'buy_pack',pack:pack.id};
+        }
+        if(wantItem) return {type:'buy_trinket',id:preferred[0].id};
         return {type:"next_round"};
       }
       // Rules are fixed within this choice. Many special-heavy reroll samples
@@ -65,7 +84,7 @@ export function makePolicy(
       const greedy = swaps.reduce((a, b) =>
         a.immediate.score >= b.immediate.score ? a : b,
       );
-      if (name === "greedy") return greedy.action;
+      if (["greedy","builder","specialist"].includes(name)) return greedy.action;
       const cost = rulesFor(view.config).rerollCost;
       if (name === "spender" && view.coins < cost) return greedy.action;
       // Common random samples reduce noise between alternatives. They are drawn
@@ -80,7 +99,7 @@ export function makePolicy(
           completion = 0;
         for (const seed of seeds) {
           const simulated = {
-            version: 5,
+            version: 6,
             seed: 0,
             rng: seed,
             nextId: Math.max(...view.board.map((d) => d.id)) + 1,

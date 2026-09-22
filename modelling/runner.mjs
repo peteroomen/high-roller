@@ -6,7 +6,7 @@ import {
   newGame,
   nextRound,
   clone,
-  rulesFor,
+  rulesFor, TRINKETS, MATCH_TIERS, stageInfo,
 } from "../engine.mjs";
 import { pacing } from "../presentation.mjs";
 import { observe, makePolicy } from "./policies.mjs";
@@ -33,7 +33,7 @@ export function runOne({
   policy = "greedy",
   samples = 6,
   coinValue = 4,
-  maxActions = 250,
+  maxActions = 400,
   record = true,
 }) {
   let s = newGame(seed, config);
@@ -49,6 +49,11 @@ export function runOne({
     roundCount:config.targets.length,
     actions: 0,
     packPurchases:0, tokenPicks:counts(), roundRewards:0, packSpending:0, shopVisits:0,
+    trinketPurchases:0,trinketSales:0,trinketSpending:0,saleIncome:0,
+    multiPicks:Object.fromEntries(MATCH_TIERS.map(t=>[t,0])),
+    trinketTriggers:Object.fromEntries(TRINKETS.map(t=>[t.id,0])),
+    trinketBonuses:Object.fromEntries(TRINKETS.map(t=>[t.id,0])),
+    trinketFlights:0,
     pipFlights: 0,
     multFlights: 0,
     scoreAnimationMs: 0,
@@ -63,7 +68,7 @@ export function runOne({
     shuffles: 0,
     cappedResolutions: 0,
     totalScore: 0,
-    points: { matchBase: 0, blastBase: 0, cascade: 0, low: 0 },
+    points: { matchBase: 0, blastBase: 0, cascade: 0, low: 0, upgrades:0, trinketMult:0, trinketPips:0 },
     specialSwapActions: 0,
     specialScore: counts(),
     specialSpawns: counts(),
@@ -95,6 +100,7 @@ export function runOne({
   function recordRound(cleared, censored = false) {
     m.rounds.push({
       round: s.round + 1,
+      stage:stageInfo(s.round,s.config).number,
       cleared,
       censored,
       score: s.score,
@@ -114,7 +120,7 @@ export function runOne({
     if (["won","lost"].includes(s.status)) break;
     if (m.actions >= maxActions) {
       m.status = "censored";
-      recordRound(false, true);
+      if(!m.rounds.some(row=>row.round===s.round+1)) recordRound(false, true);
       break;
     }
     if (
@@ -132,7 +138,15 @@ export function runOne({
     if(action.type === "reroll") m.rerolls++;
     if(action.type === "buy_pack") {m.packPurchases++;m.packSpending+=out.summary.coinsSpent;}
     if(action.type === "visit_shop") {m.shopVisits++;m.roundRewards+=out.summary.coinsEarned;}
-    if(out.summary.tokenType) m.tokenPicks[out.summary.tokenType]++;
+    if(action.type==='buy_trinket') {m.trinketPurchases++;m.trinketSpending+=out.summary.coinsSpent;}
+    if(action.type==='sell_trinket') {m.trinketSales++;m.saleIncome+=out.summary.coinsEarned;}
+    if(out.summary.tokenType?.startsWith('multi-')) m.multiPicks[out.summary.tokenType.slice(6)]++;
+    else if(out.summary.tokenType) m.tokenPicks[out.summary.tokenType]++;
+    // Allocate pip bonuses first at final Mult, then all Mult sources over dice pips.
+    // This fixed ordering conserves score without double-counting interactions.
+    const bonusPips=out.summary.entries.reduce((n,e)=>n+(e.pipBonus??0),0);
+    const dicePips=out.summary.pips-bonusPips;
+    m.points.trinketPips+=bonusPips*out.summary.mult;
     m.coinsEarned += out.summary.coinsEarned;
     m.coinsSpent += out.summary.coinsSpent;
     if (action.type === "reroll") {
@@ -158,10 +172,13 @@ export function runOne({
       }
       for (const e of f.entries) {
         m.points[e.kind === "match" ? "matchBase" : "blastBase"] +=
-          out.summary.pips * e.size;
+          dicePips * e.size;
+        m.points.upgrades+=dicePips*(e.upgrade??0);
+        m.points.trinketMult+=dicePips*(e.trinketMult??0);
+        for(const t of e.trinkets??[]) {m.trinketTriggers[t.id]++;m.trinketBonuses[t.id]+=t.value;}
         if (e.specialType) m.specialScore[e.specialType] += e.score;
-        m.points.cascade += out.summary.pips * e.cascade;
-        m.points.low += out.summary.pips * e.low;
+        m.points.cascade += dicePips * e.cascade;
+        m.points.low += dicePips * e.low;
         if (e.kind === "match") {
           const n = f.before[e.affected[0]].n;
           m.naturalByPip[n - 1]++;
@@ -294,6 +311,8 @@ export function aggregate(runs, roundCount = runs[0]?.roundCount ?? DEFAULTS.tar
     }),
     score: quantiles(runs.map((r) => r.totalScore)),
     actions: quantiles(runs.map((r) => r.actions)),
+    trinketPurchases:sum('trinketPurchases'),trinketSales:sum('trinketSales'),trinketSpending:sum('trinketSpending'),saleIncome:sum('saleIncome'),
+    multiPicks:merge('multiPicks'),trinketTriggers:merge('trinketTriggers'),trinketBonuses:merge('trinketBonuses'),trinketFlights:sum('trinketFlights'),
     pipFlights: sum("pipFlights"),
     multFlights: sum("multFlights"),
     scoreAnimationSeconds: quantiles(runs.map(r=>r.scoreAnimationMs/1000)),

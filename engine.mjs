@@ -2,21 +2,28 @@ const TYPES = ["column", "color", "number", "bomb", "coin", "row"];
 const COLORS = ["Coral", "Amber", "Green", "Blue", "Violet", "Rose"];
 const DEFAULTS = {
   moves: 10,
-  targets: [220, 900, 2400, 6000, 10000, 14000],
+  targets: [220, 500, 1000, 1700, 2700, 4000, 5500, 7200, 9500],
+  stageLength: 3,
   rates: [0, 0, 0, 0, 0, 0],
   lowBonus: true,
   draft: true,
 };
 const RULES = Object.freeze({
   rerollCost: 3,
-  tokenBoost: 5,
+  tokenBoost: 2,
   tokenTypeCap: 30,
-  specialRateCap: 90,
+  specialRateCap: 30,
   packCost: 5,
   roundReward: 5,
+  multiPackCost: 4,
+  levelBoost: [2, 4, 6, 8],
+  trinketPips: [16, 32, 56, 88],
+  trinketMult: [2, 4, 8, 12],
+  trinketCost: 5,
+  trinketSlots: 4,
   cascadeStep: 1,
   lowMult: 1,
-  sizeMult: [1, 2, 3],
+  sizeMult: [2, 3, 4, 5],
   maxWaves: 80,
   specialMult: { column: 2, color: 2, number: 2, bomb: 2, coin: 2, row: 2 },
 });
@@ -26,6 +33,22 @@ function rulesFor(config) {
     ...config.rules,
     specialMult: { ...RULES.specialMult, ...config.rules?.specialMult },
   };
+}
+const MATCH_TIERS = [3, 4, 5, 6];
+const tierFor = size => Math.min(6, size);
+const tierLabel = tier => tier === 6 ? "6+" : String(tier);
+const TRINKETS = MATCH_TIERS.flatMap(tier => ["pips", "mult"].map(stat => ({
+  id: `${stat}-${tier}`, tier, stat, name: `${tierLabel(tier)} ${stat === "pips" ? "Pip" : "Mult"} Die`,
+})));
+function trinketValue(item, config) { return rulesFor(config)[item.stat === "pips" ? "trinketPips" : "trinketMult"][item.tier - 3]; }
+function matchMult(tier, config) {
+  const r=rulesFor(config);
+  return (r.sizeMult[tier - 3] ?? r.sizeMult[2]) + (config.matchLevels?.[tier] ?? 0) * r.levelBoost[tier - 3];
+}
+function stageInfo(round, config) {
+  const length=config.stageLength ?? 3;
+  const number=Math.floor(round/length)+1;
+  return {number, total:Math.ceil(config.targets.length/length), leg:round%length+1, length:Math.min(length,config.targets.length-(number-1)*length), name:["Opening Table","High Stakes","Final Table"][number-1] ?? `Table ${number}`};
 }
 const clone = (x) => structuredClone(x);
 function random(s) {
@@ -142,11 +165,11 @@ function freshBoard(s) {
 }
 function newGame(seed = Date.now() >>> 0, config = DEFAULTS) {
   const s = {
-    version: 5,
+    version: 6,
     seed: seed >>> 0,
     rng: seed >>> 0,
     nextId: 1,
-    config: { ...clone(config), rates: TYPES.map((_, i) => config.rates[i] ?? 0) },
+    config: { matchLevels:{3:0,4:0,5:0,6:0},trinkets:[], ...clone(config), rates: TYPES.map((_, i) => config.rates[i] ?? 0) },
     initialConfig: clone(config),
     round: 0,
     score: 0,
@@ -219,7 +242,12 @@ function wave(b, groups, depth, config, roots = []) {
     if (!claims.has(i)) claims.set(i, entry);
   };
   for (const g of groups) {
-    const size = rules.sizeMult[g.length >= 5 ? 2 : g.length === 4 ? 1 : 0];
+    const size = (rules.sizeMult[Math.min(g.length - 3,3)] ?? rules.sizeMult[2]);
+    const tier=tierFor(g.length);
+    const upgrade=(config.matchLevels?.[tier] ?? 0)*rules.levelBoost[tier-3];
+    const trinkets=TRINKETS.filter(t=>t.tier===tier && config.trinkets?.includes(t.id)).map(t=>({...t,value:trinketValue(t,config)}));
+    const pipBonus=trinkets.filter(t=>t.stat==='pips').reduce((n,t)=>n+t.value,0);
+    const trinketMult=trinkets.filter(t=>t.stat==='mult').reduce((n,t)=>n+t.value,0);
     const low = config.lowBonus && b[g[0]].n <= 2 ? rules.lowMult : 0;
     const entry = {
       kind: "match",
@@ -228,7 +256,8 @@ function wave(b, groups, depth, config, roots = []) {
       size,
       low,
       cascade,
-      mult: size + low + cascade,
+      upgrade, trinkets, pipBonus, trinketMult,
+      mult: size + upgrade + low + cascade + trinketMult,
       label: `${g.length} × ${b[g[0]].n}`,
     };
     candidates.push(entry);
@@ -289,11 +318,12 @@ function wave(b, groups, depth, config, roots = []) {
       const indices = [...claims]
         .filter(([, owner]) => owner === e)
         .map(([i]) => i);
-      const pips = indices.reduce((sum, i) => sum + b[i].n, 0);
+      const dicePips = indices.reduce((sum, i) => sum + b[i].n, 0);
+      const pips=dicePips+(e.pipBonus??0);
       return {
         ...e,
         indices,
-        pips,
+        dicePips, pips,
         label:
           e.kind === "match" && indices.length < e.matchSize
             ? `${e.matchSize}-match · ${indices.length} dice`
@@ -319,7 +349,7 @@ function wave(b, groups, depth, config, roots = []) {
 function restoreGame(saved) {
   if (
     !saved ||
-    ![1, 2, 3, 4, 5].includes(saved.version) ||
+    ![1, 2, 3, 4, 5, 6].includes(saved.version) ||
     saved.board?.length !== 36 ||
     !saved.board.every((d) => TYPES.includes(d.special) || numbered(d))
   )
@@ -331,7 +361,17 @@ function restoreGame(saved) {
     s.draft=null; s.shop=null;
   }
   s.initialConfig ??= {...clone(s.config),rates:TYPES.map((t,i)=>Math.max(0,(s.config.rates[i]??0)-(s.tokens?.[t]??0)*rulesFor(s.config).tokenBoost))};
-  s.version = 5;
+  // Preserve old token economics so a partly opened legacy pack cannot deadlock
+  // when its already-owned special rates exceed the new cap.
+  if(saved.version<6) {
+    const legacy={tokenBoost:5,specialRateCap:90,sizeMult:[1,2,3,3]};
+    s.config.rules={...legacy,...s.config.rules};
+    s.initialConfig.rules={...legacy,...s.initialConfig.rules};
+  }
+  s.version = 6;
+  s.config.matchLevels ??= {3:0,4:0,5:0,6:0};
+  s.config.trinkets ??= [];
+  if(s.shop) {s.shop.offers ??= [];s.shop.sold ??= [];}
   s.config.rates = TYPES.map((_,i) => s.config.rates[i] ?? (saved.version < 3 ? DEFAULTS.rates[i] : 0));
   s.board = s.board.map((d) =>
     d.special
@@ -437,7 +477,7 @@ function act(original, action) {
   for(const f of frames) for(const entry of f.entries) entry.score=movePips*entry.mult;
   const summary = {
     action: clone(action),
-    ruleVersion: 5,
+    ruleVersion: 6,
     pips: movePips, mult: moveMult,
     directSpecials: frames
       .flatMap((f) => f.activations)
@@ -456,6 +496,7 @@ function act(original, action) {
         label: e.label,
         kind: e.kind,
         specialType: e.specialType,
+        matchSize:e.matchSize, upgrade:e.upgrade??0, trinkets:e.trinkets??[], pipBonus:e.pipBonus??0, trinketMult:e.trinketMult??0, dicePips:e.dicePips,
         pips: e.pips,
         mult: e.mult,
         size: e.size,
@@ -469,12 +510,14 @@ function act(original, action) {
   return { state: s, initial, frames, shuffled, resolutionCapped, summary };
 }
 const PACKS = [
+  {id:"multi",name:"Count Me In",note:"Level up match Mult",kind:"multi"},
   {id:"assorted",name:"Lucky Dip",note:"A little of everything",pool:TYPES},
   {id:"lines",name:"Straight Flush",note:"More rows & columns",pool:["row","column","row","column","bomb","number"]},
   {id:"tricks",name:"Wild Things",note:"More sweeps & coins",pool:["color","number","coin","color","number","bomb"]},
 ];
 function canTakeToken(s,type) {
   const r=rulesFor(s.config),i=TYPES.indexOf(type);
+  if(/^multi-[3-6]$/.test(type)) return !s.config.disableUpgrades;
   return r.tokenBoost>0 && !s.config.disabledTypes?.includes(type) && i>=0 && (s.config.rates[i]??0)+r.tokenBoost<=r.tokenTypeCap &&
     s.config.rates.reduce((a,b)=>a+b,0)+r.tokenBoost<=r.specialRateCap;
 }
@@ -489,16 +532,30 @@ function tokenOffers(s,count,pool=TYPES) {
   }
   return offers;
 }
+function packCost(pack,config) {const r=rulesFor(config);return pack.kind==='multi'?r.multiPackCost:r.packCost;}
+function canBuyPack(s,pack) {
+  return !s.shop?.bought && s.coins>=packCost(pack,s.config) && (pack.kind==='multi'?!s.config.disableUpgrades:TYPES.some(t=>canTakeToken(s,t)));
+}
+function trinketOffers(s) {
+  if(s.config.disableTrinkets) return [];
+  const pool=TRINKETS.filter(t=>!s.config.trinkets.includes(t.id)).map(t=>t.id),offers=[];
+  while(pool.length&&offers.length<3) offers.push(pool.splice(Math.floor(random(s)*pool.length),1)[0]);
+  return offers;
+}
 function progressAction(original,action) {
   const s=clone(original), r=rulesFor(s.config);
-  let coinsEarned=0,coinsSpent=0,tokenType=null;
+  let coinsEarned=0,coinsSpent=0,tokenType=null,trinketId=null;
   if(action.type==="choose_token" && s.status==="draft") {
     const d=s.draft;
     if(!Number.isInteger(action.index) || action.index<0 || action.index>=d.offers.length || d.picks.includes(action.index)) return null;
     tokenType=d.offers[action.index];
     if(!canTakeToken(s,tokenType)) return null;
-    s.config.rates[TYPES.indexOf(tokenType)]+=r.tokenBoost;
-    s.tokens[tokenType]++;
+    if(tokenType.startsWith('multi-')) {
+      const tier=Number(tokenType.slice(6));s.config.matchLevels[tier]=(s.config.matchLevels[tier]??0)+1;
+    } else {
+      s.config.rates[TYPES.indexOf(tokenType)]+=r.tokenBoost;
+      s.tokens[tokenType]++;
+    }
     d.picks.push(action.index);
     if(d.picks.length>=d.limit || !d.offers.some((t,i)=>!d.picks.includes(i)&&canTakeToken(s,t))) {
       s.status=d.kind==="starter"?"playing":"shop";
@@ -508,21 +565,32 @@ function progressAction(original,action) {
   } else if(action.type==="visit_shop" && s.status==="roundwon") {
     coinsEarned=r.roundReward+Math.floor(Math.max(0,s.moves)/3);
     s.coins+=coinsEarned;
-    s.status="shop"; s.shop={bought:false,reward:coinsEarned};
+    s.status="shop"; s.shop={bought:false,reward:coinsEarned,offers:trinketOffers(s),sold:[]};
   } else if(action.type==="buy_pack" && s.status==="shop") {
     const pack=PACKS.find(p=>p.id===action.pack);
-    if(!pack || s.shop.bought || s.coins<r.packCost) return null;
-    const offers=tokenOffers(s,5,pack.pool);
+    if(!pack || !canBuyPack(s,pack)) return null;
+    // Numbered packs reveal all four tiers and one extra weighted toward common matches.
+    const offers=pack.kind==='multi' ? [...MATCH_TIERS.map(t=>`multi-${t}`),`multi-${[3,3,4,5,6][Math.floor(random(s)*5)]}`] : tokenOffers(s,5,pack.pool);
     if(!offers.length) return null;
-    coinsSpent=r.packCost; s.coins-=coinsSpent; s.shop.bought=true;
+    coinsSpent=packCost(pack,s.config); s.coins-=coinsSpent; s.shop.bought=true;
     s.status="draft";
-    s.draft={kind:"pack",name:pack.name,offers,picks:[],limit:Math.min(3,offers.length,Math.floor((r.specialRateCap-s.config.rates.reduce((a,b)=>a+b,0))/r.tokenBoost))};
+    s.draft={kind:"pack",name:pack.name,offers,picks:[],limit:pack.kind==='multi'?3:Math.min(3,offers.length,Math.floor((r.specialRateCap-s.config.rates.reduce((a,b)=>a+b,0))/r.tokenBoost))};
+  } else if(action.type==='buy_trinket' && s.status==='shop') {
+    trinketId=action.id;
+    if(s.config.disableTrinkets || !s.shop.offers?.includes(trinketId) || s.shop.sold?.includes(trinketId) || s.config.trinkets.includes(trinketId) || s.config.trinkets.length>=r.trinketSlots || s.coins<r.trinketCost) return null;
+    s.config.trinkets.push(trinketId);s.shop.sold.push(trinketId);
+    coinsSpent=r.trinketCost;s.coins-=coinsSpent;
+  } else if(action.type==='sell_trinket' && s.status==='shop') {
+    trinketId=action.id;
+    if(!s.config.trinkets.includes(trinketId)) return null;
+    s.config.trinkets=s.config.trinkets.filter(id=>id!==trinketId);
+    coinsEarned=Math.floor(r.trinketCost/2);s.coins+=coinsEarned;
   } else if(action.type==="next_round" && s.status==="shop") {
     s.round++; s.score=0; s.moves=s.config.moves; s.status="playing";
     s.shop=null; s.board=freshBoard(s);
   } else return null;
-  const summary={action:clone(action),ruleVersion:5,turn:s.turn,round:s.round+1,
-    score:0,pips:0,mult:0,waves:0,specials:0,directSpecials:0,entries:[],coinsEarned,coinsSpent,tokenType};
+  const summary={action:clone(action),ruleVersion:6,turn:s.turn,round:s.round+1,
+    score:0,pips:0,mult:0,waves:0,specials:0,directSpecials:0,entries:[],coinsEarned,coinsSpent,tokenType,trinketId};
   s.history.push(summary);
   return {state:s,initial:clone(s.board),frames:[],summary};
 }
@@ -538,7 +606,8 @@ function preview(b, a, c, config) {
   return g.length || roots.length ? wave(next,g,0,config,roots) : null;
 }
 export {
-  PACKS, canTakeToken,
+  PACKS, canTakeToken, canBuyPack, packCost,
+  MATCH_TIERS, TRINKETS, tierFor, tierLabel, trinketValue, matchMult, stageInfo,
   legalActions, previewAction, mostCommonNumber,
   numbered,
   specialMultiplier,

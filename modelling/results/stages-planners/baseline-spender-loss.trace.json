@@ -1,0 +1,289 @@
+{
+  "seed": 5002,
+  "config": {
+    "moves": 10,
+    "targets": [
+      220,
+      500,
+      1000,
+      1700,
+      2700,
+      4000,
+      5500,
+      7200,
+      9500
+    ],
+    "stageLength": 3,
+    "rates": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "lowBonus": true,
+    "draft": true
+  },
+  "policy": "spender",
+  "engineHash": "823a570e1d9e1bf4b47b6b9cff347440131335ea61cd7406ff64e9ab273d67d1",
+  "finalHash": "272738b5017c0f9c01e837843fd33b39755f006ec439fd0d109a48f8052612d4",
+  "trace": [
+    {
+      "turn": 1,
+      "round": 1,
+      "action": {
+        "type": "choose_token",
+        "index": 1
+      },
+      "before": "da0b3c0020d02bf917201724974eebd77af4c1c32c017d1b498c9a3e979b32c9",
+      "after": "2f656ea654f6499afff17f57570959fca76fef625182ab581497a0d71d648212",
+      "score": 0,
+      "coins": 0,
+      "waves": 0
+    },
+    {
+      "turn": 2,
+      "round": 1,
+      "action": {
+        "type": "swap",
+        "a": 20,
+        "b": 26
+      },
+      "before": "2f656ea654f6499afff17f57570959fca76fef625182ab581497a0d71d648212",
+      "after": "634229a4120e04a994131599257475f45dfb90d4fe4357921f4ef9f359733b20",
+      "score": 684,
+      "coins": 0,
+      "waves": 2
+    },
+    {
+      "turn": 3,
+      "round": 1,
+      "action": {
+        "type": "visit_shop"
+      },
+      "before": "634229a4120e04a994131599257475f45dfb90d4fe4357921f4ef9f359733b20",
+      "after": "66cb6a0b5a8f2c4ac429a30097eea8c3ecbd8c0441866cd5a6d0ee563d4272af",
+      "score": 0,
+      "coins": 8,
+      "waves": 0
+    },
+    {
+      "turn": 4,
+      "round": 1,
+      "action": {
+        "type": "buy_pack",
+        "pack": "tricks"
+      },
+      "before": "66cb6a0b5a8f2c4ac429a30097eea8c3ecbd8c0441866cd5a6d0ee563d4272af",
+      "after": "09c738961e986db213201e0900541ed00f7437bd6096c4fe7df16a248ec0a68e",
+      "score": 0,
+      "coins": 3,
+      "waves": 0
+    },
+    {
+      "turn": 5,
+      "round": 1,
+      "action": {
+        "type": "choose_token",
+        "index": 3
+      },
+      "before": "09c738961e986db213201e0900541ed00f7437bd6096c4fe7df16a248ec0a68e",
+      "after": "811651b3058001cf0f5caec45cb4355356fc2bfbe24b39b6117ba9b013b8df4c",
+      "score": 0,
+      "coins": 3,
+      "waves": 0
+    },
+    {
+      "turn": 6,
+      "round": 1,
+      "action": {
+        "type": "choose_token",
+        "index": 1
+      },
+      "before": "811651b3058001cf0f5caec45cb4355356fc2bfbe24b39b6117ba9b013b8df4c",
+      "after": "ef1b8393ae6d42d04e1c14297b891cd86ceef2f085eae95a650249e457af9f06",
+      "score": 0,
+      "coins": 3,
+      "waves": 0
+    },
+    {
+      "turn": 7,
+      "round": 1,
+      "action": {
+        "type": "choose_token",
+        "index": 2
+      },
+      "before": "ef1b8393ae6d42d04e1c14297b891cd86ceef2f085eae95a650249e457af9f06",
+      "after": "85cb78149a4a2dd0bdb54d18a163568ff7ca846b4985ba36541b20503f9d9a3e",
+      "score": 0,
+      "coins": 3,
+      "waves": 0
+    },
+    {
+      "turn": 8,
+      "round": 2,
+      "action": {
+        "type": "next_round"
+      },
+      "before": "85cb78149a4a2dd0bdb54d18a163568ff7ca846b4985ba36541b20503f9d9a3e",
+      "after": "848d51854af6e68addadc9d9fc0905cec8221d17585170212a6b26cc69421862",
+      "score": 0,
+      "coins": 3,
+      "waves": 0
+    },
+    {
+      "turn": 9,
+      "round": 2,
+      "action": {
+        "type": "reroll",
+        "index": 21
+      },
+      "before": "848d51854af6e68addadc9d9fc0905cec8221d17585170212a6b26cc69421862",
+      "after": "c43248ba39a44ab5c935cdad890a22a668f27fc61c09432fb90d3adf4569309b",
+      "score": 0,
+      "coins": 0,
+      "waves": 0
+    },
+    {
+      "turn": 10,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 23,
+        "b": 29
+      },
+      "before": "c43248ba39a44ab5c935cdad890a22a668f27fc61c09432fb90d3adf4569309b",
+      "after": "f51968a14805449d697305d3460860965efa41d523b48e86e3c8a025995a11f8",
+      "score": 24,
+      "coins": 0,
+      "waves": 1
+    },
+    {
+      "turn": 11,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 9,
+        "b": 15
+      },
+      "before": "f51968a14805449d697305d3460860965efa41d523b48e86e3c8a025995a11f8",
+      "after": "ef1481e5c14d0f9d24ce6cb81a667aeeee7044154704d377f5f7e4971b6fedd5",
+      "score": 18,
+      "coins": 0,
+      "waves": 1
+    },
+    {
+      "turn": 12,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 9,
+        "b": 15
+      },
+      "before": "ef1481e5c14d0f9d24ce6cb81a667aeeee7044154704d377f5f7e4971b6fedd5",
+      "after": "024adef434a6b1e3dd185757cc8d0e8cab21fb0ce5d2de35efc4f7cd4bb20dab",
+      "score": 16,
+      "coins": 0,
+      "waves": 1
+    },
+    {
+      "turn": 13,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 28,
+        "b": 29
+      },
+      "before": "024adef434a6b1e3dd185757cc8d0e8cab21fb0ce5d2de35efc4f7cd4bb20dab",
+      "after": "21653fec74ea8d8dc67138b5e230e9bad70f5d5d2be6edb626169cc5012dca6e",
+      "score": 30,
+      "coins": 0,
+      "waves": 1
+    },
+    {
+      "turn": 14,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 7,
+        "b": 13
+      },
+      "before": "21653fec74ea8d8dc67138b5e230e9bad70f5d5d2be6edb626169cc5012dca6e",
+      "after": "9b00fe12728bde89bf97d3ecd09f0fd96e7b56faa5d5fdae4e59288ba9fde0e7",
+      "score": 24,
+      "coins": 0,
+      "waves": 1
+    },
+    {
+      "turn": 15,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 0,
+        "b": 6
+      },
+      "before": "9b00fe12728bde89bf97d3ecd09f0fd96e7b56faa5d5fdae4e59288ba9fde0e7",
+      "after": "1b988e0d5205de070e03c71214989ac78ea5c00b1e5bacbcb6883557333f45b0",
+      "score": 30,
+      "coins": 0,
+      "waves": 1
+    },
+    {
+      "turn": 16,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 2,
+        "b": 3
+      },
+      "before": "1b988e0d5205de070e03c71214989ac78ea5c00b1e5bacbcb6883557333f45b0",
+      "after": "767d49cb76c0697476cd27376567d244c74f41b7d01f1abae2e0d9d8cac1d172",
+      "score": 36,
+      "coins": 0,
+      "waves": 1
+    },
+    {
+      "turn": 17,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 12,
+        "b": 13
+      },
+      "before": "767d49cb76c0697476cd27376567d244c74f41b7d01f1abae2e0d9d8cac1d172",
+      "after": "899a437bd8ab20c16ea702a010667c88988acb1fcc0a3a45e2802ba3a28e0de5",
+      "score": 150,
+      "coins": 0,
+      "waves": 2
+    },
+    {
+      "turn": 18,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 10,
+        "b": 11
+      },
+      "before": "899a437bd8ab20c16ea702a010667c88988acb1fcc0a3a45e2802ba3a28e0de5",
+      "after": "97ad673464df69fc36bb380195d33a6c7988f27c5571bd94ddf16b4c925ef08a",
+      "score": 24,
+      "coins": 0,
+      "waves": 1
+    },
+    {
+      "turn": 19,
+      "round": 2,
+      "action": {
+        "type": "swap",
+        "a": 10,
+        "b": 16
+      },
+      "before": "97ad673464df69fc36bb380195d33a6c7988f27c5571bd94ddf16b4c925ef08a",
+      "after": "272738b5017c0f9c01e837843fd33b39755f006ec439fd0d109a48f8052612d4",
+      "score": 36,
+      "coins": 0,
+      "waves": 1
+    }
+  ]
+}

@@ -9,12 +9,13 @@ import {
   wave,
   act,
   legalMoves,
-  DEFAULTS,
+  DEFAULTS as CURRENT_DEFAULTS,
   effect,
   collapse,
   clone,
   nextRound,
 } from "../engine.mjs";
+const DEFAULTS={...CURRENT_DEFAULTS,rules:{...CURRENT_DEFAULTS.rules,sizeMult:[1,2,3,3]}};
 const newGame=(seed,config=DEFAULTS)=>createGame(seed,{...config,draft:false});
 const fixture = () =>
   Array.from({ length: 36 }, (_, i) => ({
@@ -266,7 +267,7 @@ test("old saves migrate without special pips and new saves resume exactly", () =
   s.version = 1;
   s.board[7].special = "bomb";
   const migrated = restoreGame(s);
-  assert.equal(migrated.version, 5);
+  assert.equal(migrated.version, 6);
   assert.equal(migrated.board[7].n, null);
   assert.equal(migrated.board[7].mult, 2);
   assert.deepEqual(restoreGame(JSON.parse(JSON.stringify(migrated))), migrated);

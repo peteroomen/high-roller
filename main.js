@@ -7,7 +7,8 @@ import "@fontsource/space-grotesk/latin-600.css";
 import "@fontsource/space-grotesk/latin-700.css";
 import {
   rulesFor,
-  PACKS, canTakeToken,
+  PACKS, canTakeToken, canBuyPack, packCost,
+  MATCH_TIERS, TRINKETS, tierLabel, trinketValue, matchMult, stageInfo,
   restoreGame,
   specialMultiplier,
   COLORS,
@@ -67,6 +68,16 @@ let busy = false,
   audioCtx;
 const cells = [];
 let viewBoard = state.board;
+function trinketMarkup(t) {
+  return `<span class="trinket-die ${t.stat}"><b>${tierLabel(t.tier)}</b><small>${t.stat==='pips'?'PIP':'MULT'}</small></span>`;
+}
+function inventory() {
+  $('match-levels').innerHTML=MATCH_TIERS.map(t=>`<span title="Matches of ${tierLabel(t)} dice add ${matchMult(t,state.config)} Mult before bonuses"><b>${tierLabel(t)}</b><small>Lv ${(state.config.matchLevels[t]??0)+1}</small><em>+${matchMult(t,state.config)}×</em></span>`).join('');
+  $('trinket-rack').innerHTML=state.config.trinkets.length?state.config.trinkets.map(id=>{
+    const t=TRINKETS.find(t=>t.id===id);
+    return `<div class="owned-trinket" id="trinket-${id}" title="${t.name}: +${trinketValue(t,state.config)} ${t.stat} per ${tierLabel(t.tier)}-die match" aria-label="${t.name}, adds ${trinketValue(t,state.config)} ${t.stat}">${trinketMarkup(t)}<span>+${trinketValue(t,state.config)}<small>${t.stat}</small></span></div>`;
+  }).join(''):'<span class="empty-rack">TRINKETS · 0 / '+rulesFor(state.config).trinketSlots+'</span>';
+}
 function tokenBag() {
   $("special-list").innerHTML=TYPES.map((t,i)=>`<div class="special-item"><span class="special-token">${iconMarkup(t)}</span><div><b>${names[t]} <em>${state.config.rates[i]}%</em></b><small>${descriptions[t]}</small></div></div>`).join("");
   $("token-bag").innerHTML=TYPES.flatMap((t,i)=>state.config.rates[i]>0?[`<span class="bag-token" title="${names[t]}">${iconMarkup(t)}<b>${state.config.rates[i]}%</b></span>`]:[]).join("") || '<small>Choose a starter token</small>';
@@ -198,9 +209,12 @@ function hud() {
   $("percent").textContent = Math.floor((display.score / target) * 100) + "%";
   $("progress").style.width =
     Math.min(100, (display.score / target) * 100) + "%";
-  $("round-label").textContent = `ROUND ${String(state.round+1).padStart(2,"0")} / ${String(state.config.targets.length).padStart(2,"0")}`;
+  const stage=stageInfo(state.round,state.config);
+  $("round-label").textContent = `STAGE ${stage.number} / ${stage.total} · ${stage.leg} / ${stage.length}`;
+  $('round-label').title=stage.name;
   document.querySelector(".round-dots").innerHTML=state.config.targets.map((_,i)=>`<i class="${i===state.round?"active":""}"></i>`).join("");
   tokenBag();
+  inventory();
   document
     .querySelectorAll(".round-dots i")
     .forEach((el, i) => el.classList.toggle("active", i === state.round));
@@ -219,7 +233,7 @@ function resetCalc() {
   $("mult").textContent = "0";
   $("calc-label").textContent = "MAKE A MATCH";
   $("wave-label").textContent = "";
-  $("calc-detail").textContent = "Size + cascade + low-pip bonus";
+  $("calc-detail").textContent = "One Mult total per group";
   $("last-gain").textContent = "";
 }
 async function bang(id, tempo=1) {
@@ -231,8 +245,8 @@ async function bang(id, tempo=1) {
     });
   } finally { el.style.transform = ""; }
 }
-async function fly(indices, text, targetId, add, tempo=1) {
-  const positions = indices.map(i => cells[i].getBoundingClientRect());
+async function fly(indices, text, targetId, add, tempo=1, hold=TIMING.multHold) {
+  const positions = typeof indices === "string" ? [$(indices).getBoundingClientRect()] : indices.map(i => cells[i].getBoundingClientRect());
   const x = positions.reduce((n,r)=>n+r.x+r.width/2,0)/positions.length;
   const y = positions.reduce((n,r)=>n+r.y+r.height/2,0)/positions.length;
   const el = document.createElement("div");
@@ -252,8 +266,8 @@ async function fly(indices, text, targetId, add, tempo=1) {
       el.style.top=y+(ty-y)*ease+"px";
     });
     el.dataset.phase = "hold";
-    // The arrival remains readable for half a second, even in fast mode.
-    await animate(TIMING.hold,()=>{},true);
+    // A short, fixed landing beat stays legible as the dice accelerate.
+    await animate(hold,()=>{},true);
     el.dataset.phase = "add";
     add();
     el.remove();
@@ -352,15 +366,22 @@ async function perform(action) {
           await fly([event.index], `+${event.value}`, "pips",()=>{
             collected+=event.value;$("pips").textContent=collected;
             if(mult) $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(collected*mult)}`;
-          },event.tempo);
+          },event.tempo,TIMING.hold);
         } else if(event.kind === 'group') {
           const {entry,contributions}=event;
           outlineGroups(frame.entries,frame.entries.indexOf(entry));
           $("calc-label").textContent=entry.label.toUpperCase();
           for(const part of contributions) {
             $("calc-detail").textContent=part.label;
-            await fly(entry.affected,`+${part.value}`,"mult",()=>{
-              mult+=part.value;$("mult").textContent=mult;
+            if(part.source) {
+              const piece=$('trinket-'+part.source);piece.classList.add('triggering');
+              try {await animate(TIMING.shake,t=>{if(!prefs.reduced)piece.style.transform=`scale(${1+Math.sin(t*Math.PI)*.25}) rotate(${Math.sin(t*Math.PI*5)*8}deg)`;});}
+              finally {piece.style.transform='';piece.classList.remove('triggering');}
+            }
+            const target=part.target??'mult';
+            await fly(part.source?'trinket-'+part.source:entry.affected,`+${part.value}`,target,()=>{
+              if(target==='pips') {collected+=part.value;$('pips').textContent=collected;}
+              else {mult+=part.value;$("mult").textContent=mult;}
               $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(collected*mult)}`;
             });
           }
@@ -549,18 +570,19 @@ $("modal").addEventListener("cancel", (e) => {
 const closeButton =
   '<button class="close-modal" data-close aria-label="Close dialog">\xD7</button>';
 function rules() {
+  const r=rulesFor(state.config);
   modal(
-    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: +1 Mult \xB7 4 dice: +2 \xB7 5+ dice: +3.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. All pips and all Mult add together across the entire move. Multiply once after the last cascade.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Swap with a neighbour to activate (1 move). Only its effect area scores. Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Each cleared numbered die adds its pips once. Each activated special adds its Mult (normally +2), plus its cascade bonus. Overlapping effects do not duplicate pips.</div><div class="rule">Number sweeps target the swapped number. Chained sweeps inherit that target; swapping two specials uses the most common number (ties go higher). Specials hit by another special activate once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Start with one free token; buy foil packs between rounds to choose 3 of 5 tokens. Each token adds 5 percentage points to that special’s spawn rate. Reach all six goals.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
+    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>${MATCH_TIERS.map(t=>`${tierLabel(t)} dice: +${r.sizeMult[t-3]??r.sizeMult[2]} Mult`).join(" · ")}.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. All pips and all Mult add together across the entire move. Multiply once after the last cascade.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Swap with a neighbour to activate (1 move). Only its effect area scores. Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Each cleared numbered die adds its pips once. Each activated special adds its Mult (normally +2), plus its cascade bonus. Overlapping effects do not duplicate pips.</div><div class="rule">Number sweeps target the swapped number. Chained sweeps inherit that target; swapping two specials uses the most common number (ties go higher). Specials hit by another special activate once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Start with one free token; buy foil packs between rounds to choose 3 of 5 tokens. Each special token adds ${r.tokenBoost} percentage points to its spawn rate, up to ${r.specialRateCap}% total specials. Numbered tokens level up a match tier. Trinket dice add pips or Mult once per matching group; specials do not trigger them. Four trinket slots; sell in the shop for half price. Clear three stages of three rounds.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
   );
   $("rules-ledger").onclick = ledger;
 }
 function ledger() {
   const last=state.history.findLast(h=>h.action.type==='swap'||h.action.type==='reroll');
-  modal(`${closeButton}<div class="eyebrow">SCORE BREAKDOWN</div><h2>Last move</h2>${last?`<p class="ledger-total">${last.pips ?? '—'} pips × ${last.mult ?? '—'} Mult = <strong>${fmt(last.score)}</strong></p><p>${last.waves} waves · pips count once, Mult adds</p>${last.entries.map(e=>`<div class="ledger-entry"><div>${e.label}<small>${e.size} ${e.kind==='blast'?'special':'size'}${e.low?` + ${e.low} low pips`:''}${e.cascade?` + ${e.cascade} cascade`:''}</small></div><b>+${e.mult} Mult</b></div>`).join('')}`:'<p>Make a move to see its contributions.</p>'}<button class="primary" data-close>Back</button>`);
+  modal(`${closeButton}<div class="eyebrow">SCORE BREAKDOWN</div><h2>Last move</h2>${last?`<p class="ledger-total">${last.pips ?? '—'} pips × ${last.mult ?? '—'} Mult = <strong>${fmt(last.score)}</strong></p><p>${last.waves} waves · pips count once, Mult adds</p>${last.entries.map(e=>`<div class="ledger-entry"><div>${e.label}<small>${e.size} ${e.kind==='blast'?'special':'size'}${e.upgrade?` + ${e.upgrade} level`:''}${e.low?` + ${e.low} low pips`:''}${e.cascade?` + ${e.cascade} cascade`:''}</small></div><b>+${e.mult} Mult${e.pipBonus?`<small>+${e.pipBonus} bonus pips</small>`:""}</b></div>${(e.trinkets??[]).map(t=>`<div class="ledger-trinket">${t.name} · +${t.value} ${t.stat}</div>`).join("")}`).join('')}`:'<p>Make a move to see its contributions.</p>'}<button class="primary" data-close>Back</button>`);
 }
 function pauseMenu() {
   modal(
-    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 04</p>`,
+    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 05</p>`,
   );
   for (const k of ["sound", "fast", "reduced"])
     $("pref-" + k).onchange = (e) => {
@@ -595,10 +617,11 @@ async function startNew(seed = Date.now() >>> 0, config = DEFAULTS) {
 }
 function endRound() {
   if(["draft","shop"].includes(state.status)) return progressionScreen();
+  const stage=stageInfo(state.round,state.config);
   const win = state.status === "won",
     lost = state.status === "lost";
   modal(
-    `<div class="eyebrow">${lost ? "RUN ENDED" : win ? "RUN COMPLETE" : "TARGET CLEARED"}</div><h2>${lost ? "Target missed" : win ? "All rounds cleared" : "Round cleared"}</h2><p>${lost ? `${fmt(state.score)} of ${fmt(state.config.targets[state.round])} points. Try a new board or replay this seed.` : win ? "Run complete." : "Coins carry to the next round."}</p><div class="stats"><div><b>${fmt(state.total)}</b><span>TOTAL POINTS</span></div><div><b>${state.bestChain}</b><span>BEST CASCADE</span></div><div><b>${state.coins}</b><span>COINS</span></div></div><div class="modal-actions"><button class="primary" id="advance">${lost || win ? "New run" : "Visit shop →"}</button>${lost ? '<button class="secondary" id="retry">Replay seed</button>' : ""}<button class="secondary" id="end-ledger">Breakdown</button></div>`,
+    `<div class="eyebrow">${lost ? "RUN ENDED" : win ? "RUN COMPLETE" : "TARGET CLEARED"}</div><h2>${lost ? "Target missed" : win ? "All stages cleared" : stage.leg===stage.length ? `Stage ${stage.number} cleared` : "Round cleared"}</h2><p>${lost ? `${fmt(state.score)} of ${fmt(state.config.targets[state.round])} points. Try a new board or replay this seed.` : win ? "Run complete." : "Coins carry to the next round."}</p><div class="stats"><div><b>${fmt(state.total)}</b><span>TOTAL POINTS</span></div><div><b>${state.bestChain}</b><span>BEST CASCADE</span></div><div><b>${state.coins}</b><span>COINS</span></div></div><div class="modal-actions"><button class="primary" id="advance">${lost || win ? "New run" : "Visit shop →"}</button>${lost ? '<button class="secondary" id="retry">Replay seed</button>' : ""}<button class="secondary" id="end-ledger">Breakdown</button></div>`,
   );
   $("advance").onclick = async () => {
     if (lost || win) return startNew();
@@ -631,25 +654,38 @@ async function progress(action) {
 function progressionScreen() {
   const r=rulesFor(state.config);
   if(state.status==='draft') {
-    const d=state.draft,starter=d.kind==='starter',remaining=d.limit-d.picks.length;
-    modal(`<div class="eyebrow">${starter?'YOUR FIRST TOKEN':d.name.toUpperCase()}</div><h2>${starter?'Pick your starter':`Choose ${remaining} more`}</h2><p class="draft-note">${starter?'Choose 1 of 3 · free':`Keep ${d.limit} of ${d.offers.length} tokens`} · +${r.tokenBoost}% spawn chance each</p><div class="token-choices ${starter?'starter':''} ${!starter&&!d.picks.length?'pack-opening':''}">${d.offers.map((t,i)=>`<button class="token-choice ${d.picks.includes(i)?'picked':''}" data-token="${i}" ${d.picks.includes(i)||!canTakeToken(state,t)?'disabled':''} aria-label="Choose ${names[t]} token"><span class="token-coin">${iconMarkup(t)}</span><b>${names[t]}</b><small>${descriptions[t]}</small><em>${d.picks.includes(i)?'✓ Added':`${state.config.rates[TYPES.indexOf(t)]}% → ${state.config.rates[TYPES.indexOf(t)]+r.tokenBoost}%`}</em></button>`).join('')}</div><div class="pack-footer">${starter?'Every other special starts at 0%.':`${d.picks.length} / ${d.limit} kept · tokens last the whole run`}</div>`);
+    const d=state.draft,starter=d.kind==='starter',remaining=d.limit-d.picks.length,multi=d.offers[0]?.startsWith('multi-');
+    modal(`<div class="eyebrow">${starter?'YOUR FIRST TOKEN':d.name.toUpperCase()}</div><h2>${starter?'Pick your starter':`Choose ${remaining} more`}</h2><p class="draft-note">${starter?'Choose 1 of 3 · free':`Keep ${d.limit} of ${d.offers.length} tokens`} · ${multi?'level up match Mult':`+${r.tokenBoost}% spawn chance each`}</p><div class="token-choices ${starter?'starter':''} ${!starter&&!d.picks.length?'pack-opening':''}">${d.offers.map((t,i)=>{
+      const tier=Number(t.slice(6)),picked=d.picks.includes(i),name=multi?`${tierLabel(tier)}-match`:names[t];
+      return `<button class="token-choice ${picked?'picked':''}" data-token="${i}" ${picked||!canTakeToken(state,t)?'disabled':''} aria-label="Choose ${name} token"><span class="token-coin ${multi?'number-token':''}">${multi?tierLabel(tier):iconMarkup(t)}</span><b>${name}</b><small>${multi?`Level ${(state.config.matchLevels[tier]??0)+1} · +${r.levelBoost[tier-3]} Mult per level`:descriptions[t]}</small><em>${picked?'✓ Added':multi?`+${matchMult(tier,state.config)} → +${matchMult(tier,state.config)+r.levelBoost[tier-3]} Mult`:`${state.config.rates[TYPES.indexOf(t)]}% → ${state.config.rates[TYPES.indexOf(t)]+r.tokenBoost}%`}</em></button>`;
+    }).join('')}</div><div class="pack-footer">${starter?'Every other special starts at 0%.':`${d.picks.length} / ${d.limit} kept · tokens last the whole run`}</div>`);
     document.querySelectorAll('[data-token]').forEach(el=>el.onclick=()=>progress({type:'choose_token',index:Number(el.dataset.token)}));
   } else if(state.status==='shop') {
-    modal(`<div class="shop-heading"><div><div class="eyebrow">ROUND ${state.round+1} CLEARED</div><h2>Token shop</h2></div><span class="shop-wallet">● ${state.coins}</span></div><p class="draft-note">Round payout +${state.shop.reward} coins · tokens stack</p><div class="foil-shelf">${PACKS.map((pack,i)=>`<button class="foil-pack foil-${i}" data-pack="${pack.id}" ${state.shop.bought||state.coins<r.packCost||!TYPES.some(t=>canTakeToken(state,t))?'disabled':''} aria-label="Open ${pack.name} pack for ${r.packCost} coins"><span class="foil-seal">HIGH ROLLER</span><span class="foil-art">${iconMarkup(i===0?'number':i===1?'row':'bomb')}</span><b>${pack.name}</b><small>${pack.note}</small><span class="pack-count">5 TOKENS · PICK 3</span><em>${state.shop.bought?'SOLD OUT':`${r.packCost} ●`}</em></button>`).join('')}</div><div class="shop-bag">${TYPES.flatMap((t,i)=>state.config.rates[i]?[`<span>${iconMarkup(t)} ${state.config.rates[i]}%</span>`]:[]).join('')}</div><p class="pack-footer">One pack per shop</p><button class="primary shop-next" id="next-shop-round">Round ${state.round+2} · goal ${fmt(state.config.targets[state.round+1])} →</button>`);
+    const next=stageInfo(state.round+1,state.config),nextStage=next.leg===1;
+    modal(`<div class="shop-heading"><div><div class="eyebrow">ROUND ${state.round+1} CLEARED · +${state.shop.reward} ●</div><h2>Table shop</h2></div><span class="shop-wallet">● ${state.coins}</span></div><p class="draft-note">One pack · pick three tokens</p><div class="foil-shelf">${PACKS.map((pack,i)=>`<button class="foil-pack foil-${i}" data-pack="${pack.id}" ${!canBuyPack(state,pack)?'disabled':''} aria-label="Open ${pack.name} pack for ${packCost(pack,state.config)} coins"><span class="foil-seal">HIGH ROLLER</span><span class="foil-art ${pack.kind==='multi'?'number-art':''}">${pack.kind==='multi'?'3⁺':iconMarkup(pack.id==='lines'?'row':pack.id==='tricks'?'bomb':'number')}</span><b>${pack.name}</b><small>${pack.note}</small><span class="pack-count">5 TOKENS · PICK 3</span><em>${state.shop.bought?'SOLD OUT':`${packCost(pack,state.config)} ●`}</em></button>`).join('')}</div><div class="shop-section"><b>Trinkets</b><small>${state.config.trinkets.length} / ${r.trinketSlots} slots</small></div><div class="trinket-shelf">${(state.shop.offers??[]).map(id=>{
+      const t=TRINKETS.find(t=>t.id===id),sold=state.shop.sold.includes(id);
+      return `<button class="trinket-card" data-buy-trinket="${id}" ${sold||state.config.trinkets.includes(id)||state.coins<r.trinketCost||state.config.trinkets.length>=r.trinketSlots?'disabled':''} aria-label="Buy ${t.name} for ${r.trinketCost} coins">${trinketMarkup(t)}<b>${t.name}</b><small>+${trinketValue(t,state.config)} ${t.stat}<br>per ${tierLabel(t.tier)}-match</small><em>${sold?'SOLD':`${r.trinketCost} ●`}</em></button>`;
+    }).join('')||'<small>No trinkets available</small>'}</div>${state.config.trinkets.length?`<div class="shop-section"><b>Your trinkets</b><small>Sell for ${Math.floor(r.trinketCost/2)} ●</small></div><div class="owned-shelf">${state.config.trinkets.map(id=>{const t=TRINKETS.find(t=>t.id===id);return `<button class="sell-trinket" data-sell-trinket="${id}" aria-label="Sell ${t.name}">${trinketMarkup(t)}<span>${t.name}<small>Sell · ${Math.floor(r.trinketCost/2)} ●</small></span></button>`;}).join('')}</div>`:''}<button class="primary shop-next" id="next-shop-round">${nextStage?`Stage ${next.number} · ${next.name}`:`Round ${state.round+2}`} · ${fmt(state.config.targets[state.round+1])} →</button>`);
     document.querySelectorAll('[data-pack]').forEach(el=>el.onclick=()=>progress({type:'buy_pack',pack:el.dataset.pack}));
+    document.querySelectorAll('[data-buy-trinket]').forEach(el=>el.onclick=()=>progress({type:'buy_trinket',id:el.dataset.buyTrinket}));
+    document.querySelectorAll('[data-sell-trinket]').forEach(el=>el.onclick=()=>progress({type:'sell_trinket',id:el.dataset.sellTrinket}));
     $('next-shop-round').onclick=()=>progress({type:'next_round'});
   }
 }
 function lab() {
   modal(
-    `${closeButton}<div class="eyebrow">PLAYTEST CONTROLS</div><h2>Test bench.</h2><p>Changes start a fresh seeded run. Each special has its own spawn chance.</p><div class="settings"><label>Seed<input id="seed" class="wide" type="number" min="0" max="4294967295" value="${state.seed}"></label><label>Moves per round<input id="lab-moves" type="number" min="1" max="30" value="${state.config.moves}"></label>${state.config.targets.map((n, i) => `<label>Round ${i + 1} target<input id="target-${i}" type="number" min="1" max="999999" value="${n}"></label>`).join("")}${TYPES.map((t, i) => `<label>${names[t]} %<input id="rate-${i}" type="number" min="0" max="20" step="1" value="0"></label>`).join("")}<label>1s & 2s get +1 Mult<input id="low-bonus" type="checkbox" ${state.config.lowBonus ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" id="apply-test">Start test run</button><button class="secondary" id="reset-test">Defaults</button></div><div class="modal-actions"><button class="secondary" id="export-run">Export run log</button></div>`,
+    `${closeButton}<div class="eyebrow">PLAYTEST CONTROLS</div><h2>Test bench.</h2><p>Changes start a fresh seeded run. Each special has its own spawn chance.</p><div class="settings"><label>Seed<input id="seed" class="wide" type="number" min="0" max="4294967295" value="${state.seed}"></label><label>Moves per round<input id="lab-moves" type="number" min="1" max="30" value="${state.config.moves}"></label>${state.config.targets.map((n, i) => `<label>Round ${i + 1} target<input id="target-${i}" type="number" min="1" max="999999" value="${n}"></label>`).join("")}${TYPES.map((t, i) => `<label>${names[t]} %<input id="rate-${i}" type="number" min="0" max="20" step="1" value="0"></label>`).join("")}${MATCH_TIERS.map(t=>`<label>${tierLabel(t)}-match starting level<input id="lab-level-${t}" type="number" min="1" max="99" value="1"></label>`).join('')}${TRINKETS.map(t=>`<label>Start with ${t.name}<input id="lab-trinket-${t.id}" type="checkbox"></label>`).join('')}<label>1s & 2s get +1 Mult<input id="low-bonus" type="checkbox" ${state.config.lowBonus ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" id="apply-test">Start test run</button><button class="secondary" id="reset-test">Defaults</button></div><div class="modal-actions"><button class="secondary" id="export-run">Export run log</button></div>`,
   );
   $("apply-test").onclick = () => {
     const moves = +$("lab-moves").value,
       targets = state.config.targets.map((_, i) => +$("target-" + i).value),
       rates = TYPES.map((_, i) => +$("rate-" + i).value),
-      seed = +$("seed").value;
+      seed = +$("seed").value,
+      matchLevels=Object.fromEntries(MATCH_TIERS.map(t=>[t,+$('lab-level-'+t).value-1])),
+      trinkets=TRINKETS.filter(t=>$('lab-trinket-'+t.id).checked).map(t=>t.id);
     if (
+      trinkets.length>rulesFor(DEFAULTS).trinketSlots ||
+      Object.values(matchLevels).some(n=>!Number.isInteger(n)||n<0||n>98) ||
       !Number.isInteger(moves) ||
       moves < 1 ||
       moves > 30 ||
@@ -660,15 +696,15 @@ function lab() {
       seed < 0 ||
       seed > 4294967295
     ) {
-      toast("Please use values within the shown limits.");
+      toast("Use the shown limits and at most four trinkets.");
       return;
     }
-    startNew(seed, { moves, targets, rates, draft:true, lowBonus: $("low-bonus").checked });
+    startNew(seed, { moves, targets, rates, matchLevels,trinkets,stageLength:3,draft:true, lowBonus: $("low-bonus").checked });
   };
   $("reset-test").onclick = () => startNew(Date.now() >>> 0, DEFAULTS);
   $("export-run").onclick = () => {
     const blob = new Blob(
-        [JSON.stringify({ build: "0.4.0", ...state }, null, 2)],
+        [JSON.stringify({ build: "0.5.0", ...state }, null, 2)],
         { type: "application/json" },
       ),
       url = URL.createObjectURL(blob),
