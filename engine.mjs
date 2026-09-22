@@ -137,7 +137,8 @@ function effect(b, i, type) {
   return b.flatMap((x, j) => {
     let yes = false;
     if (type === "column") yes = j % 6 === c;
-    if (type === "color") yes = x.color === d.color;
+    // Legacy type key retained for existing saves; colour now denotes special dice.
+    if (type === "color") yes = Boolean(x.special);
     if (type === "number") yes = x.n === d.n;
     if (type === "bomb")
       yes = Math.abs(Math.floor(j / 6) - r) <= 1 && Math.abs((j % 6) - c) <= 1;

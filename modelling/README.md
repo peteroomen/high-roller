@@ -26,7 +26,7 @@ The CLI writes summary JSON, a Markdown report, CSV/JSONL run-level data, and ex
 | Horizontal/vertical matches and overlaps | `matches`, `wave`               | Group-size frequencies, pip-value frequencies, no duplicate clears                                  |
 | Pips and multipliers                     | `wave`                          | Exact accounting split into match base, blast base, cascade bonus and low-pip bonus                 |
 | Falling, refills and cascades            | `collapse`, `act`               | Full resolution, depth histograms, mean/tail/max waves, new special spawns                          |
-| Column, colour, number, bomb             | `effect`, `wave`                | Spawn/trigger counts by type; activations caused by other specials; blast scoring                   |
+| Column, special sweep, number, bomb             | `effect`, `wave`                | Spawn/trigger counts by type; activations caused by other specials; blast scoring                   |
 | Coins                                    | `wave`, `act`                   | Coins earned/spent/remaining, round-level economy, affordability                                    |
 | 2×2 rerolls                              | `act`                           | All 25 distinct areas; budget, score, zero-match frequency, saved moves                             |
 | Dead boards                              | `reshuffle`                     | Actual free reshuffles and event count                                                              |
@@ -60,3 +60,7 @@ Score conservation and coin conservation are enforced on every simulated run. Ce
 ## Interpretation
 
 Good balance needs more than a chosen win rate. Check whether strategies differ, whether low pips have a useful role, how much score comes from random cascades versus chosen matches, whether specials can dominate, whether the coin action is actually available, and where runs fail. Quantiles reveal rare explosions hidden by averages. Action/wave counts describe mechanical pacing; they cannot establish how many minutes a human run lasts.
+
+## Bone dice (0.1.2)
+
+The `color` special type now sweeps all special dice. It is exercised by all policies and the existing `without-color` ablation; trigger/chain metrics retain that key for compatibility. Colour-board baseline/sensitivity reports are historical. Current bone-dice results are in `results/bone/`; source hashes distinguish the rule versions.

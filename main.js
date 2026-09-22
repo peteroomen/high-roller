@@ -14,23 +14,22 @@ import {
   preview,
   clone,
   DEFAULTS,
-  COLORS,
   TYPES,
 } from "./engine.mjs";
-import { Board, HEX, SYMBOL } from "./board.js";
+import { Board, SPECIAL_HEX, dieColor, SYMBOL } from "./board.js";
 import { CSSBoard } from "./css-board.js";
 const $ = (id) => document.getElementById(id),
   fmt = (n) => n.toLocaleString();
 const names = {
   column: "Column sweeper",
-  color: "Colour sweep",
+  color: "Special sweep",
   number: "Number sweep",
   bomb: "Bomb",
   coin: "Coin",
 };
 const descriptions = {
   column: "Clears a full column",
-  color: "Clears its own colour",
+  color: "Clears all special dice",
   number: "Clears its pip number",
   bomb: "Clears a 3 \xD7 3 area",
   coin: "Adds one coin",
@@ -69,7 +68,7 @@ const cells = [];
 let viewBoard = state.board;
 $("special-list").innerHTML = TYPES.map(
   (t) =>
-    `<div class="special-item"><span class="special-token">${SYMBOL[t]}</span><div><b>${names[t]}</b><small>${descriptions[t]}</small></div></div>`,
+    `<div class="special-item"><span class="special-token" style="background:${SPECIAL_HEX[t]};color:#fff4dc">${SYMBOL[t]}</span><div><b>${names[t]}</b><small>${descriptions[t]}</small></div></div>`,
 ).join("");
 function save() {
   try {
@@ -161,14 +160,14 @@ function renderCells(b) {
     const el = cells[i];
     el.setAttribute(
       "aria-label",
-      `Row ${Math.floor(i / 6) + 1}, column ${(i % 6) + 1}: ${COLORS[d.color]} ${d.n}${d.special ? ", " + names[d.special] : ""}`,
+      `Row ${Math.floor(i / 6) + 1}, column ${(i % 6) + 1}: ${d.special ? "Special die" : "Bone die"} ${d.n}${d.special ? ", " + names[d.special] : ""}`,
     );
     el.dataset.n = d.n;
     el.dataset.color = d.color;
     el.dataset.special = d.special || "";
     if (false) {
       el.classList.add("fallback");
-      el.style.setProperty("--die", HEX[d.color]);
+      el.style.setProperty("--die", dieColor(d));
       el.innerHTML = `${d.n}${d.special ? `<small>${SYMBOL[d.special]}</small>` : ""}`;
     }
   });
@@ -607,7 +606,7 @@ function lab() {
   $("reset-test").onclick = () => startNew(Date.now() >>> 0, DEFAULTS);
   $("export-run").onclick = () => {
     const blob = new Blob(
-        [JSON.stringify({ build: "0.1.1", ...state }, null, 2)],
+        [JSON.stringify({ build: "0.1.2", ...state }, null, 2)],
         { type: "application/json" },
       ),
       url = URL.createObjectURL(blob),
