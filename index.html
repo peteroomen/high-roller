@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#171b29" />
+    <meta
+      name="description"
+      content="A tactile dice-matching experiment. Set up matches, light the fuse, and ride the cascade."
+    />
+    <title>High Roller · Dice & cascades</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+    <header>
+      <a class="wordmark" href="#" aria-label="High Roller"
+        ><span class="logo-die">⁙</span> HIGH ROLLER<span class="edition"
+          >PLAYTEST 01</span
+        ></a
+      >
+      <div class="header-right">
+        <span id="saved">Auto-saved</span
+        ><button class="icon-button" id="sound" aria-label="Turn sound off">
+          ♫</button
+        ><button class="icon-button" id="info" aria-label="How to play">
+          ?</button
+        ><button class="icon-button" id="pause" aria-label="Pause game">
+          Ⅱ
+        </button>
+      </div>
+    </header>
+    <main class="table">
+      <aside class="left-rail">
+        <div class="eyebrow">SPECIAL DICE</div>
+        <div id="special-list"></div>
+        <div class="tip">
+          <p>Matches of <b>1s & 2s</b><br />earn <b>+1 Mult.</b></p>
+        </div>
+      </aside>
+      <section class="play-area" aria-label="Dice board">
+        <div class="board-heading">
+          <span id="round-label">ROUND 01 / 03</span>
+          <div class="round-dots"><i class="active"></i><i></i><i></i></div>
+          <span id="chain-label">MAKE YOUR MOVE</span>
+        </div>
+        <div class="tray">
+          <div class="wood-inset">
+            <div id="board">
+              <canvas id="scene" aria-hidden="true"></canvas>
+              <div id="cells" role="group" aria-label="6 by 6 dice grid"></div>
+              <div id="effects" aria-hidden="true"></div>
+            </div>
+          </div>
+          <span class="tray-brand">H I G H &nbsp; R O L L E R</span>
+        </div>
+        <div class="board-foot">
+          <span id="instruction">Swipe a die · match 3 numbers</span
+          ><button id="hint" class="text-button">
+            Show a move <span>↗</span>
+          </button>
+        </div>
+        <div class="tools">
+          <button id="reroll" class="reroll-button">
+            <span class="tool-icon">⟳</span
+            ><span><b>Reroll 2 × 2</b><small>No move cost</small></span
+            ><span class="tool-cost">3 <span>●</span></span>
+          </button>
+          <div class="coin-purse">
+            <span class="coin-symbol">●</span><b id="coins">0</b
+            ><small>COINS</small>
+          </div>
+        </div>
+      </section>
+      <aside class="score-rail">
+        <section class="score-card">
+          <div class="eyebrow">GOAL</div>
+          <div id="target" class="target">260</div>
+          <div class="target-line"></div>
+          <div class="score-caption">
+            <span>YOUR SCORE</span><span id="percent">0%</span>
+          </div>
+          <div id="score" class="score">0</div>
+          <div class="progress"><div id="progress"></div></div>
+          <div class="moves-row">
+            <div><b id="moves">10</b><span>MOVES LEFT</span></div>
+            <span class="move-token">⁙</span>
+          </div>
+        </section>
+        <section class="calculator">
+          <div class="calc-title">
+            <span id="calc-label">MAKE A MATCH</span
+            ><span id="wave-label"></span>
+          </div>
+          <div class="equation">
+            <div class="calc-pips"><b id="pips">0</b><small>PIPS</small></div>
+            <span class="times">×</span>
+            <div class="calc-mult"><b id="mult">1</b><small>MULT</small></div>
+          </div>
+          <div id="calc-detail">Size + cascade + low-pip bonus</div>
+          <div id="last-gain"></div>
+        </section>
+        <button id="ledger" class="ledger-button">
+          Last move breakdown <span>↗</span>
+        </button>
+      </aside>
+    </main>
+    <footer>
+      <span></span><button id="lab" class="text-button">Test bench ⚙</button>
+    </footer>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <dialog id="modal"><div id="modal-content"></div></dialog>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
