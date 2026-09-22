@@ -7,6 +7,9 @@ import "@fontsource/space-grotesk/latin-600.css";
 import "@fontsource/space-grotesk/latin-700.css";
 import {
   rulesFor,
+  restoreGame,
+  specialMultiplier,
+  COLORS,
   newGame,
   act,
   nextRound,
@@ -28,11 +31,11 @@ const names = {
   coin: "Coin",
 };
 const descriptions = {
-  column: "Clears a full column",
+  column: "Clears its destination column",
   color: "Clears all special dice",
-  number: "Clears its pip number",
+  number: "Clears the swapped number",
   bomb: "Clears a 3 \xD7 3 area",
-  coin: "Adds one coin",
+  coin: "Scores its neighbour + 1 coin",
 };
 let prefs = {
   sound: true,
@@ -48,12 +51,7 @@ try {
 let state;
 try {
   const saved = JSON.parse(localStorage.getItem("piptrip-save"));
-  if (
-    saved?.version === 1 &&
-    saved.board?.length === 36 &&
-    saved.board.every((d) => d.n >= 1 && d.n <= 6)
-  )
-    state = saved;
+  state = restoreGame(saved);
 } catch {}
 if (!state) state = newGame();
 let display = { score: state.score, moves: state.moves, coins: state.coins };
@@ -68,7 +66,7 @@ const cells = [];
 let viewBoard = state.board;
 $("special-list").innerHTML = TYPES.map(
   (t) =>
-    `<div class="special-item"><span class="special-token" style="background:${SPECIAL_HEX[t]};color:#fff4dc">${SYMBOL[t]}</span><div><b>${names[t]}</b><small>${descriptions[t]}</small></div></div>`,
+    `<div class="special-item"><span class="special-token" style="background:${SPECIAL_HEX[t]};color:#fff4dc">${SYMBOL[t]}</span><div><b>${names[t]} ×${rulesFor(state.config).specialMult[t]}</b><small>${descriptions[t]}</small></div></div>`,
 ).join("");
 function save() {
   try {
@@ -160,10 +158,10 @@ function renderCells(b) {
     const el = cells[i];
     el.setAttribute(
       "aria-label",
-      `Row ${Math.floor(i / 6) + 1}, column ${(i % 6) + 1}: ${d.special ? "Special die" : "Bone die"} ${d.n}${d.special ? ", " + names[d.special] : ""}`,
+      `Row ${Math.floor(i / 6) + 1}, column ${(i % 6) + 1}: ${d.special ? `${names[d.special]}, ×${specialMultiplier(d, state.config)}` : `${COLORS[d.n - 1]} ${d.n}`}`,
     );
-    el.dataset.n = d.n;
-    el.dataset.color = d.color;
+    el.dataset.n = d.special ? "" : d.n;
+    el.dataset.color = d.special ? "special" : d.n;
     el.dataset.special = d.special || "";
     if (false) {
       el.classList.add("fallback");
@@ -283,10 +281,21 @@ async function perform(action) {
     for (const frame of outcome.frames) {
       clearMarks();
       renderCells(frame.before);
+      if (!frame.entries.length) {
+        resetCalc();
+        $("calc-label").textContent = "SPECIALS";
+        $("mult").textContent = Math.max(
+          1,
+          ...frame.activations.map((a) => a.mult),
+        );
+        $("calc-detail").textContent = "Symbols have no pips";
+      }
       marks(frame.groups.flat(), "matching");
       $("chain-label").textContent = frame.depth
         ? `${frame.depth + 1} DEEP \xB7 +${frame.depth} MULT`
-        : "MATCH FOUND";
+        : frame.activations.length
+          ? "SPECIAL ACTIVATED"
+          : "MATCH FOUND";
       $("wave-label").textContent = frame.depth
         ? `CASCADE ${frame.depth + 1}`
         : "FIRST WAVE";
@@ -313,10 +322,14 @@ async function perform(action) {
         $("pips").textContent = entry.pips;
         $("calc-detail").textContent =
           entry.kind === "blast"
-            ? `1 base${entry.cascade ? ` + ${entry.cascade} cascade` : ""} \xB7 no match bonus`
+            ? `${entry.size} special${entry.cascade ? ` + ${entry.cascade} cascade` : ""}`
             : `${entry.size} size${entry.cascade ? ` + ${entry.cascade} cascade` : ""}${entry.low ? " + 1 low pips" : ""}`;
         await Promise.all([
-          fly(entry.indices, `${entry.size} base`, "mult"),
+          fly(
+            entry.kind === "blast" ? [entry.sourceIndex] : entry.indices,
+            `${entry.size} ${entry.kind === "blast" ? "special" : "size"}`,
+            "mult",
+          ),
           ...(entry.cascade
             ? [fly("chain-label", `+${entry.cascade} cascade`, "mult")]
             : []),
@@ -432,7 +445,8 @@ for (let i = 0; i < 36; i++) {
     if (p) {
       $("instruction").textContent =
         `${fmt(p.score)} guaranteed \xB7 cascades may add more`;
-      marks(p.groups.flat(), "hinted");
+      clearMarks();
+      marks(p.cleared, "hinted");
     }
   });
   el.addEventListener("pointerup", (e) => {
@@ -505,19 +519,19 @@ const closeButton =
   '<button class="close-modal" data-close aria-label="Close dialog">\xD7</button>';
 function rules() {
   modal(
-    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Colour doesn\u2019t affect matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: \xD71 \xB7 4 dice: \xD72 \xB7 5+ dice: \xD73.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. The chain resets after your move.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Activated by a match or another special.</div>`).join("")}<div class="rule">Special clears score their pips with the cascade bonus, but get <strong>no match-size or low-pip bonus</strong>. Each die scores only once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Reach the goal before your moves run out.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
+    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: \xD71 \xB7 4 dice: \xD72 \xB7 5+ dice: \xD73.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. The chain resets after your move.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Swap with a neighbour to activate. Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Score affected pips × the special’s displayed Mult, plus the cascade bonus. The swapped neighbour is included. Each die scores once at its highest available Mult; no match bonus is added to special Mult.</div><div class="rule">Swap two specials to trigger both. A Number sweep in that combination clears every numbered die. Chained Number sweeps inherit the original swapped number.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Reach the goal before your moves run out.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
   );
   $("rules-ledger").onclick = ledger;
 }
 function ledger() {
   const last = state.history.at(-1);
   modal(
-    `${closeButton}<div class="eyebrow">SCORE BREAKDOWN</div><h2>Last move.</h2>${last ? `<p>${last.waves} wave${last.waves === 1 ? "" : "s"} \xB7 ${last.specials} special${last.specials === 1 ? "" : "s"} \xB7 <strong>${fmt(last.score)} points</strong></p>${last.entries.map((e) => `<div class="ledger-entry"><div>${e.label}<small>${e.pips} pips \xD7 ${e.mult} Mult<br>${e.size} base${e.cascade ? ` + ${e.cascade} cascade` : ""}${e.low ? " + 1 low pips" : ""}</small></div><b>+${fmt(e.score)}</b></div>`).join("")}` : "<p>Make a move and every contribution will appear here.</p>"}<div class="modal-actions"><button class="primary" data-close>Back</button></div>`,
+    `${closeButton}<div class="eyebrow">SCORE BREAKDOWN</div><h2>Last move.</h2>${last ? `<p>${last.waves} wave${last.waves === 1 ? "" : "s"} \xB7 ${last.specials} special${last.specials === 1 ? "" : "s"} \xB7 <strong>${fmt(last.score)} points</strong></p>${last.entries.map((e) => `<div class="ledger-entry"><div>${e.label}<small>${e.pips} pips \xD7 ${e.mult} Mult<br>${e.size} ${e.kind === "blast" ? "special" : "size"}${e.cascade ? ` + ${e.cascade} cascade` : ""}${e.low ? " + 1 low pips" : ""}</small></div><b>+${fmt(e.score)}</b></div>`).join("")}` : "<p>Make a move and every contribution will appear here.</p>"}<div class="modal-actions"><button class="primary" data-close>Back</button></div>`,
   );
 }
 function pauseMenu() {
   modal(
-    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 01</p>`,
+    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 02</p>`,
   );
   for (const k of ["sound", "fast", "reduced"])
     $("pref-" + k).onchange = (e) => {
@@ -606,7 +620,7 @@ function lab() {
   $("reset-test").onclick = () => startNew(Date.now() >>> 0, DEFAULTS);
   $("export-run").onclick = () => {
     const blob = new Blob(
-        [JSON.stringify({ build: "0.1.2", ...state }, null, 2)],
+        [JSON.stringify({ build: "0.2.0", ...state }, null, 2)],
         { type: "application/json" },
       ),
       url = URL.createObjectURL(blob),

@@ -57,6 +57,8 @@ export function runOne({
     cappedResolutions: 0,
     totalScore: 0,
     points: { matchBase: 0, blastBase: 0, cascade: 0, low: 0 },
+    specialSwapActions: 0,
+    specialScore: counts(),
     specialSpawns: counts(),
     specialTriggers: counts(),
     specialChainTriggers: counts(),
@@ -129,6 +131,7 @@ export function runOne({
       out = act(s, action);
     if (!out) throw Error("Invalid model action");
     m.actions++;
+    if (out.summary.directSpecials) m.specialSwapActions++;
     m[action.type === "swap" ? "swaps" : "rerolls"]++;
     m.coinsEarned += out.summary.coinsEarned;
     m.coinsSpent += out.summary.coinsSpent;
@@ -147,7 +150,7 @@ export function runOne({
       const natural = new Set(f.groups.flat());
       for (const a of f.activations) {
         m.specialTriggers[a.type]++;
-        if (!natural.has(a.index)) m.specialChainTriggers[a.type]++;
+        if (a.trigger === "chain") m.specialChainTriggers[a.type]++;
       }
       for (const g of f.groups) {
         m.matchedGroupSizes[g.length] =
@@ -156,6 +159,7 @@ export function runOne({
       for (const e of f.entries) {
         m.points[e.kind === "match" ? "matchBase" : "blastBase"] +=
           e.pips * e.size;
+        if (e.specialType) m.specialScore[e.specialType] += e.score;
         m.points.cascade += e.pips * e.cascade;
         m.points.low += e.pips * e.low;
         if (e.kind === "match") {
@@ -299,6 +303,8 @@ export function aggregate(runs, roundCount = 3) {
     shuffles: sum("shuffles"),
     cappedResolutions: sum("cappedResolutions"),
     points: merge("points"),
+    specialSwapActions: sum("specialSwapActions"),
+    specialScore: merge("specialScore"),
     specialSpawns: merge("specialSpawns"),
     specialTriggers: merge("specialTriggers"),
     specialChainTriggers: merge("specialChainTriggers"),

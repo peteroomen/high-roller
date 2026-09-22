@@ -1266,3 +1266,7 @@ dialog .eyebrow {
     font-size: 10px;
   }
 }
+
+.special-glyph { position:absolute; inset:5% 0 25%; display:grid; place-items:center; color:#f6d98c; font:bold clamp(22px, 4vw, 49px)/1 sans-serif; text-shadow:0 2px 2px #0008; }
+.special-mult { position:absolute; bottom:7%; left:0; right:0; text-align:center; color:#fff4dc; font:bold clamp(10px, 1.35vw, 17px)/1 sans-serif; }
+@media(max-width:700px){ .special-glyph{font-size:clamp(22px,7vw,36px)} .special-mult{font-size:clamp(10px,3vw,14px)} }

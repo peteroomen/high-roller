@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   newGame,
+  preview,
+  restoreGame,
   matches,
   wave,
   act,
@@ -16,7 +18,7 @@ const fixture = () =>
   Array.from({ length: 36 }, (_, i) => ({
     id: i,
     n: ((Math.floor(i / 6) + (i % 6)) % 6) + 1,
-    color: i % 4,
+    color: (Math.floor(i / 6) + (i % 6)) % 6,
     special: null,
   }));
 test("intersecting lines combine without double counting", () => {
@@ -39,10 +41,12 @@ test("four fives on cascade three score eighty", () => {
 test("low matches earn mult; blast-only low dice do not", () => {
   const b = fixture();
   [0, 1, 2].forEach((i) => (b[i].n = 1));
-  b[0].special = "column";
-  const w = wave(b, [[0, 1, 2]], 1, DEFAULTS);
+  b[6] = { ...b[6], special: "column", n: null, mult: 2 };
+  const w = wave(b, [[0, 1, 2]], 1, DEFAULTS, [
+    { index: 6, partner: 7, targetN: b[7].n },
+  ]);
   assert.equal(w.entries[0].mult, 3);
-  assert.equal(w.entries[1].mult, 2);
+  assert.equal(w.entries[1].mult, 3);
   assert.equal(w.entries[1].low, 0);
 });
 test("all special shapes and clipped bombs", () => {
@@ -63,11 +67,21 @@ test("special chains trigger once and coin scores once", () => {
   b[6].special = "bomb";
   b[7].special = "column";
   b[13].special = "coin";
-  const w = wave(b, [[0, 1, 2]], 0, DEFAULTS);
+  for (const d of b)
+    if (d.special) {
+      d.n = null;
+      d.mult = 2;
+    }
+  const w = wave(b, [], 0, DEFAULTS, [
+    { index: 0, partner: 1, targetN: b[1].n },
+  ]);
   assert.equal(w.coins, 1);
   assert.equal(w.activations.filter((a) => a.index === 6).length, 1);
   assert.equal(new Set(w.cleared).size, w.cleared.length);
-  assert.equal(w.entries.flatMap((e) => e.indices).length, w.cleared.length);
+  assert.equal(
+    w.entries.flatMap((e) => e.indices).length,
+    w.cleared.filter((i) => !b[i].special).length,
+  );
 });
 test("falling preserves face, color, special, and identity", () => {
   const s = newGame(71),
@@ -118,7 +132,13 @@ test("250 seeded boards resolve with valid scores and no deadlock", () => {
         out.frames.reduce((a, f) => a + f.score, 0),
       );
       assert.equal(new Set(out.state.board.map((d) => d.id)).size, 36);
-      assert.ok(out.state.board.every((d) => d.n >= 1 && d.n <= 6));
+      assert.ok(
+        out.state.board.every((d) =>
+          d.special
+            ? d.n === null && d.mult >= 1
+            : d.n >= 1 && d.n <= 6 && d.color === d.n - 1,
+        ),
+      );
       s = out.state;
     }
   }
@@ -130,9 +150,131 @@ test("special sweep activates every special once without targeting hidden colour
   b[0].special = "color";
   b[17].special = "coin";
   b[35].special = "color";
-  const w = wave(b, [[0, 1, 2]], 0, DEFAULTS);
-  assert.deepEqual(new Set(w.cleared), new Set([0, 1, 2, 17, 35]));
+  for (const d of b)
+    if (d.special) {
+      d.n = null;
+      d.mult = 2;
+    }
+  const w = wave(b, [], 0, DEFAULTS, [
+    { index: 0, partner: 1, targetN: b[1].n },
+  ]);
+  assert.deepEqual(new Set(w.cleared), new Set([0, 1, 17, 35]));
   assert.equal(w.coins, 1);
   assert.equal(w.activations.length, 3);
-  assert.equal(w.entries.find((e) => e.kind === "blast").size, 1);
+  assert.equal(w.entries.find((e) => e.kind === "blast").size, 2);
+});
+
+const special = (b, i, type, mult = 2) =>
+  (b[i] = { ...b[i], n: null, color: null, special: type, mult });
+const controlled = () => {
+  const s = newGame(19, { ...DEFAULTS, rates: [0, 0, 0, 0, 0] });
+  s.board = fixture();
+  s.nextId = 36;
+  return s;
+};
+test("symbol dice cannot form a number match, including three null faces", () => {
+  const b = fixture();
+  [0, 1, 2].forEach((i) => special(b, i, "bomb"));
+  assert.equal(matches(b).length, 0);
+});
+test("special swaps are legal both directions; destination column includes swapped neighbour", () => {
+  for (const [a, c] of [
+    [7, 8],
+    [8, 7],
+  ]) {
+    const s = controlled();
+    special(s.board, 7, "column", 3);
+    const p = preview(s.board, a, c, s.config),
+      out = act(s, { type: "swap", a, b: c });
+    assert.ok(p);
+    assert.ok(out);
+    const f = out.frames[0];
+    assert.deepEqual(new Set(f.cleared), new Set([2, 8, 14, 20, 26, 32, 7]));
+    const sum = f.cleared.reduce((v, i) => v + (f.before[i].n || 0), 0);
+    assert.equal(f.score, sum * 3);
+    assert.equal(p.score, f.score);
+    assert.equal(out.state.moves, 9);
+    assert.equal(out.summary.directSpecials, 1);
+    assert.equal(f.entries[0].sourceIndex, 8);
+  }
+});
+test("number sweep targets the swapped neighbour rather than carrying a number", () => {
+  const s = controlled();
+  special(s.board, 7, "number", 2);
+  const n = s.board[8].n;
+  const out = act(s, { type: "swap", a: 7, b: 8 }),
+    f = out.frames[0];
+  assert.equal(f.before[8].n, null);
+  assert.ok(f.cleared.includes(7));
+  assert.ok(f.cleared.filter((i) => i !== 8).every((i) => f.before[i].n === n));
+  assert.equal(f.score, f.cleared.filter((i) => i !== 8).length * n * 2);
+});
+test("coin swap awards one coin and only scores its numbered neighbour", () => {
+  const s = controlled();
+  special(s.board, 7, "coin", 4);
+  const n = s.board[8].n;
+  const f = act(s, { type: "swap", a: 7, b: 8 }).frames[0];
+  assert.deepEqual(new Set(f.cleared), new Set([7, 8]));
+  assert.equal(f.coins, 1);
+  assert.equal(f.score, n * 4);
+});
+test("overlapping special effects apply the largest Mult once, without match bonuses", () => {
+  const b = fixture();
+  special(b, 7, "column", 2);
+  special(b, 8, "bomb", 4);
+  const f = wave(b, [], 1, DEFAULTS, [
+    { index: 7, partner: 8, targetN: null },
+    { index: 8, partner: 7, targetN: null },
+  ]);
+  const entries = f.entries.filter((e) => e.indices.includes(1));
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].mult, 5);
+  assert.equal(entries[0].low, 0);
+  assert.equal(
+    new Set(f.entries.flatMap((e) => e.indices)).size,
+    f.entries.flatMap((e) => e.indices).length,
+  );
+});
+test("two swapped specials trigger both and number-sweep combo clears numbered dice", () => {
+  const s = controlled();
+  special(s.board, 7, "number");
+  special(s.board, 8, "coin");
+  const f = act(s, { type: "swap", a: 7, b: 8 }).frames[0];
+  assert.equal(f.cleared.length, 36);
+  assert.equal(f.activations.length, 2);
+  assert.equal(f.coins, 1);
+  assert.equal(f.score, f.before.reduce((v, d) => v + (d.n || 0), 0) * 2);
+});
+test("chained number sweep inherits original target and activates only once", () => {
+  const s = controlled();
+  special(s.board, 7, "color");
+  special(s.board, 23, "number", 3);
+  const target = s.board[8].n;
+  const f = act(s, { type: "swap", a: 7, b: 8 }).frames[0];
+  assert.equal(f.activations.find((a) => a.index === 23).targetN, target);
+  assert.equal(f.activations.find((a) => a.index === 23).trigger, "chain");
+  assert.ok(
+    f.entries
+      .find((e) => e.specialType === "number")
+      .indices.every((i) => f.before[i].n === target),
+  );
+});
+test("rerolls preserve symbol-only specials and update numbered colours", () => {
+  const s = controlled();
+  special(s.board, 0, "bomb", 3);
+  s.coins = 3;
+  const out = act(s, { type: "reroll", index: 0 });
+  assert.deepEqual(out.initial[0], s.board[0]);
+  for (const d of out.state.board)
+    assert.ok(d.special ? d.n === null : d.color === d.n - 1);
+});
+test("old saves migrate without special pips and new saves resume exactly", () => {
+  const s = controlled();
+  s.version = 1;
+  s.board[7].special = "bomb";
+  const migrated = restoreGame(s);
+  assert.equal(migrated.version, 2);
+  assert.equal(migrated.board[7].n, null);
+  assert.equal(migrated.board[7].mult, 2);
+  assert.deepEqual(restoreGame(JSON.parse(JSON.stringify(migrated))), migrated);
 });

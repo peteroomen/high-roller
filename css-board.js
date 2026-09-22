@@ -14,6 +14,7 @@ class CSSBoard {
     canvas.style.visibility = "hidden";
     this.root = document.createElement("div");
     this.root.id = "css-scene";
+    this.root.setAttribute("aria-hidden", "true");
     canvas.after(this.root);
     this.size = 0;
     this.ro = new ResizeObserver(() => {
@@ -23,13 +24,13 @@ class CSSBoard {
     this.ro.observe(this.root);
   }
   faces(d) {
-    return [d.n, 7 - d.n, 2, 5, 3, 4]
-      .map(
-        (n, i) =>
-          `<div class="face face-${i}" style="--die:${dieColor(d)};--pip:${pipColor(d)}"><div class="pip-grid ${i === 0 && d.special ? "has-special" : ""}">${Array.from({ length: 9 }, (_, p) => `<i class="${dots[n].includes(p) ? "pip" : ""}"></i>`).join("")}</div>${i === 0 && d.special ? `<span class="die-special">${SYMBOL[d.special]}</span>` : ""}</div>`,
-      )
-      .join("");
+    return Array.from(
+      { length: 6 },
+      (_, i) =>
+        `<div class="face face-${i}" style="--die:${dieColor(d)};--pip:${pipColor(d)}">${d.special ? `<span class="special-glyph">${SYMBOL[d.special]}</span><span class="special-mult">×${d.mult ?? 2}</span>` : `<div class="pip-grid">${Array.from({ length: 9 }, (_, p) => `<i class="${dots[d.n].includes(p) ? "pip" : ""}"></i>`).join("")}</div>`}</div>`,
+    ).join("");
   }
+
   async set(board, { duration = 0, roll = false } = {}) {
     const ids = new Set(board.map((d) => d.id));
     for (const [id, m] of this.meshes)
@@ -57,7 +58,7 @@ class CSSBoard {
         };
         this.meshes.set(d.id, m);
       }
-      const key = `${d.n}-${d.color}-${d.special}`;
+      const key = `${d.n}-${d.special}-${d.mult}`;
       if (m.key !== key) {
         m.cube.innerHTML = this.faces(d);
         m.key = key;

@@ -14,7 +14,7 @@ const args = process.argv.slice(2),
   };
 if (args.includes("--help")) {
   console.log(
-    "node modelling/cli.mjs --runs 250 --policies random,greedy,spender,rollout --samples 6 --scenarios baseline --seed-start 1 --out modelling/results/baseline\nUse --scenarios all for 16 sensitivity/ablation configurations. --replay <trace.json> validates a stored trace.",
+    "node modelling/cli.mjs --runs 250 --policies random,greedy,spender,rollout --samples 6 --scenarios baseline --seed-start 1 --out modelling/results/baseline\nUse --scenarios all for 18 sensitivity/ablation configurations. --replay <trace.json> validates a stored trace.",
   );
   process.exit(0);
 }
@@ -31,7 +31,7 @@ const runs = Number(get("--runs", "250")),
   scenarioArg = get("--scenarios", "baseline"),
   scenarios =
     scenarioArg === "all" ? Object.keys(SCENARIOS) : scenarioArg.split(","),
-  out = path.resolve(root, get("--out", "modelling/results/baseline"));
+  out = path.resolve(root, get("--out", "modelling/results/swap-specials"));
 if (
   !Number.isInteger(runs) ||
   runs < 1 ||
@@ -181,7 +181,7 @@ for (const [name, scenario] of Object.entries(result.scenarios)) {
   for (const [policy, s] of Object.entries(scenario.policies)) {
     const p = s.points,
       total = Object.values(p).reduce((a, b) => a + b, 0);
-    md += `### ${policy}\n\n- Mean ${num(s.actions.mean)} actions/run; ${num(s.wavesPerAction.mean)} waves/action; p99 ${s.wavesPerAction.p99}, maximum ${s.wavesPerAction.max}.\n- ${s.rerolls} rerolls, ${s.rerollsWithNoMatch} without an immediate match; ${s.coinsEarned} coins earned, ${s.coinsSpent} spent.\n- Score shares: match base ${pct(p.matchBase / total)}, blast base ${pct(p.blastBase / total)}, cascade bonus ${pct(p.cascade / total)}, low-pip bonus ${pct(p.low / total)}.\n- ${s.shuffles} dead-board shuffles; ${s.cappedResolutions} resolution ceilings.\n\n| Special | Spawned | Triggered | Triggered by another special |\n|---|---:|---:|---:|\n`;
+    md += `### ${policy}\n\n- Mean ${num(s.actions.mean)} actions/run; ${num(s.wavesPerAction.mean)} waves/action; p99 ${s.wavesPerAction.p99}, maximum ${s.wavesPerAction.max}.\n- ${s.rerolls} rerolls, ${s.rerollsWithNoMatch} without an immediate match; ${s.coinsEarned} coins earned, ${s.coinsSpent} spent.\n- Score shares: match base ${pct(p.matchBase / total)}, special base ${pct(p.blastBase / total)}, cascade bonus ${pct(p.cascade / total)}, low-pip bonus ${pct(p.low / total)}.\n- ${s.specialSwapActions} special swaps.\n- ${s.shuffles} dead-board shuffles; ${s.cappedResolutions} resolution ceilings.\n\n| Special | Spawned | Triggered | Triggered by another special |\n|---|---:|---:|---:|\n`;
     for (const t of Object.keys(s.specialSpawns))
       md += `| ${t} | ${s.specialSpawns[t]} | ${s.specialTriggers[t]} | ${s.specialChainTriggers[t]} |\n`;
   }

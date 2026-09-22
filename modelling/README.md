@@ -12,7 +12,7 @@ npm run simulate:sweep
 # Confirm a candidate on an independent seed range:
 npm run simulate -- --scenarios baseline,coin-rate-5 --policies greedy,spender,rollout --runs 500 --samples 8 --seed-start 100001 --out modelling/results/held-out
 # Verify a stored run against the exact engine:
-node modelling/cli.mjs --replay modelling/results/baseline/baseline-greedy-win.trace.json
+node modelling/cli.mjs --replay modelling/results/swap-specials/baseline-greedy-win.trace.json
 ```
 
 The CLI writes summary JSON, a Markdown report, CSV/JSONL run-level data, and example win/loss traces for each cell. Traces include before/after state fingerprints and accepted actions. Reports include engine/model hashes, Node version, commit, seed interval, sample counts and full rule configurations. Timestamps vary; seeded game outcomes do not.
@@ -22,7 +22,7 @@ The CLI writes summary JSON, a Markdown report, CSV/JSONL run-level data, and ex
 | System                                   | Authoritative engine path       | Model coverage / metrics                                                                            |
 | ---------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Initial board, colour/number supply      | `newGame`, `freshBoard`, `die`  | Actual generated board, visible special spawns, deterministic seeds                                 |
-| Adjacent swaps and legal-move search     | `adjacent`, `legalMoves`, `act` | All legal swaps available to policies; invalid actions fail a model run                             |
+| Adjacent swaps and legal-move search     | `adjacent`, `legalMoves`, `act` | All legal matches and special swaps available to policies; invalid actions fail a model run                             |
 | Horizontal/vertical matches and overlaps | `matches`, `wave`               | Group-size frequencies, pip-value frequencies, no duplicate clears                                  |
 | Pips and multipliers                     | `wave`                          | Exact accounting split into match base, blast base, cascade bonus and low-pip bonus                 |
 | Falling, refills and cascades            | `collapse`, `act`               | Full resolution, depth histograms, mean/tail/max waves, new special spawns                          |
@@ -51,7 +51,7 @@ A run can spend coins multiple times and carry them between rounds. It cannot bu
 
 ## Sensitivity suite
 
-Sixteen configurations include baseline, no specials, doubled specials, no low bonus, no cascade bonus, increased coin spawns, cheaper rerolls, eight/twelve moves, targets ±20%, and individual removal of each special type. All use the same production engine, including configurable rule values returned by `rulesFor`.
+Eighteen configurations include baseline, no specials, doubled specials, no low bonus, no cascade bonus, increased coin spawns, cheaper rerolls, eight/twelve moves, targets ±20%, and individual removal of each special type. All use the same production engine, including configurable rule values returned by `rulesFor`.
 
 Paired comparisons show win-rate changes, gained/lost wins and approximate paired intervals. These are screening results. Multiple comparisons, small samples, noisy planners and policy bias can produce misleading winners. Confirm a proposed change on held-out seeds and a real playtest; do not tune directly against the baseline seeds indefinitely.
 
@@ -63,4 +63,10 @@ Good balance needs more than a chosen win rate. Check whether strategies differ,
 
 ## Bone dice (0.1.2)
 
-The `color` special type now sweeps all special dice. It is exercised by all policies and the existing `without-color` ablation; trigger/chain metrics retain that key for compatibility. Colour-board baseline/sensitivity reports are historical. Current bone-dice results are in `results/bone/`; source hashes distinguish the rule versions.
+The `color` special type now sweeps all special dice. It is exercised by all policies and the existing `without-color` ablation; trigger/chain metrics retain that key for compatibility. Colour-board baseline/sensitivity reports are historical. Historical bone-dice results are in `results/bone/`; source hashes distinguish the rule versions.
+
+## Symbol-only specials (0.2.0)
+
+Current output: `results/swap-specials/`. Legal-move enumeration includes any adjacent special swap; all four policies evaluate the exact first wave, including the destination effect, swapped neighbour, special combinations and carried multipliers. Specials have null pip values and break matching runs. Numbered colours are determined by pip value and rerolls preserve that relationship. Initial generation and save migration maintain these invariants.
+
+`specialSwapActions` records decisions using a special. Activation metadata distinguishes direct swaps from chains; per-type `specialScore` attributes scored dice to their winning effect. Overlap ownership uses the highest Mult with deterministic ties, and every run still enforces score/coin conservation and replay. `blastBase` now includes the full carried special multiplier (the report labels it special base). Cascade and low-pip bonuses remain separate. The new `special-mult-1` and `special-mult-3` scenarios compare against the default ×2. No human win-rate inference is made from these agents.

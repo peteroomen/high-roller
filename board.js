@@ -1,21 +1,26 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-const SPECIAL_HEX = {
-  column: "#387fa3",
-  color: "#8870b4",
-  number: "#368d81",
-  bomb: "#ba5e51",
-  coin: "#d4a849",
-};
-const dieColor = (d) => SPECIAL_HEX[d.special] || "#e9ddc5";
+// One stable body colour per pip value; specials use a separate dark material.
+const PIP_HEX = [
+  "#c65e55",
+  "#d5a544",
+  "#639354",
+  "#488daf",
+  "#8c70b1",
+  "#b7628a",
+];
+const SPECIAL_HEX = Object.fromEntries(
+  ["column", "color", "number", "bomb", "coin"].map((t) => [t, "#353344"]),
+);
+const dieColor = (d) => (d.special ? SPECIAL_HEX[d.special] : PIP_HEX[d.n - 1]);
 const pipColor = (d) =>
-  !d.special || d.special === "coin" ? "#302a25" : "#fff4dc";
+  d.special ? "#f6d98c" : d.n === 2 ? "#342a22" : "#fff4dc";
 const SYMBOL = {
   column: "\u2195",
   color: "\u25C8",
   number: "#",
   bomb: "\u2739",
-  coin: "\u25CF",
+  coin: "$",
 };
 const DOTS = {
   1: [[0, 0]],
@@ -103,8 +108,8 @@ class Board {
     this.renderer.setSize(r.width, r.width, false);
     this.render();
   }
-  material(body, ink, n, special) {
-    const key = [body, ink, n, special].join("-");
+  material(body, ink, n, special, mult = 2) {
+    const key = [body, ink, n, special, mult].join("-");
     if (this.materials.has(key)) return this.materials.get(key);
     const c = document.createElement("canvas");
     c.width = c.height = 160;
@@ -119,21 +124,20 @@ class Board {
     ctx.fillStyle = ink;
     const scale = special ? 31 : 34,
       cy = special ? 72 : 80;
-    for (const [x, y] of DOTS[n]) {
+    for (const [x, y] of special ? [] : DOTS[n] || []) {
       ctx.beginPath();
       ctx.arc(80 + x * scale, cy - y * scale, 10, 0, Math.PI * 2);
       ctx.fill();
     }
     if (special) {
-      ctx.fillStyle = "#282239";
-      ctx.beginPath();
-      ctx.roundRect(61, 116, 38, 29, 8);
-      ctx.fill();
-      ctx.fillStyle = special === "coin" ? "#f5d578" : "#ffefd1";
-      ctx.font = "bold 25px sans-serif";
+      ctx.fillStyle = "#f6d98c";
+      ctx.font = "bold 76px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(SYMBOL[special], 80, 131);
+      ctx.fillText(SYMBOL[special], 80, 68);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 27px sans-serif";
+      ctx.fillText(`×${mult}`, 80, 128);
     }
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -146,8 +150,8 @@ class Board {
     return mat;
   }
   mats(d) {
-    return [2, 5, 3, 4, d.n, 7 - d.n].map((n, i) =>
-      this.material(dieColor(d), pipColor(d), n, i === 4 ? d.special : null),
+    return Array.from({ length: 6 }, () =>
+      this.material(dieColor(d), pipColor(d), d.n, d.special, d.mult),
     );
   }
   render() {

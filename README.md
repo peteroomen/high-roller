@@ -1,4 +1,4 @@
-# High Roller — playtest 01
+# High Roller — playtest 02
 
 A mobile-first dice matching roguelite prototype. Built with Three.js and a plain HTML/CSS interface; a CSS 3D renderer takes over automatically when WebGL is unavailable. No backend, analytics, paid APIs, or accounts required to play.
 
@@ -19,21 +19,21 @@ The development server uses port 4173. The production output is `dist/`.
 
 Import this repository in Vercel with the Vite preset, root `./`, install `npm ci`, build `npm run build`, output `dist`, and Node.js 22.x. No environment variables are needed. These settings are included in `vercel.json`; see [DEPLOY.md](DEPLOY.md).
 
-## Rules
+## Rules (0.2.0)
 
-- 6×6 board; swap orthogonally adjacent dice to match three or more numbers. Colours do not form matches.
-- Invalid swaps cost no moves. A board with no legal moves is automatically reshuffled for free.
-- Per matched group: pip sum × (size multiplier + cascade bonus + low-number bonus).
-- Size multiplier: three dice = 1, four = 2, five or more = 3. Intersecting matching runs merge into one group, with each die counted once.
-- The first wave has no cascade bonus; the next wave gets +1 Mult, then +2, etc. It resets after each action.
-- Matches of ones and twos receive +1 Mult (toggle in Test bench).
-- Specials activate on a natural match or another special's clear. Each die scores and activates at most once in a wave.
-- Column sweeper clears its column; special sweep clears all special dice; number sweep clears its own face value; bomb clears a clipped 3×3; coin awards one coin.
-- Blast-only dice score pips × (1 + cascade depth), with no size or low-number bonus.
-- Each die has a 2% chance of each of the five specials, mutually exclusive: 10% combined. Ordinary dice are bone with dark pips. Each special type has a distinct colour and symbol; colours never form matches. Legacy colour fields remain in saves solely for compatibility. Initial boards are conditioned on having no pre-existing matches.
-- Three coins buy a 2×2 reroll without spending a move. Faces change; colours and special identities stay. Edges clamp the area to the board.
-- Three rounds, ten moves each; targets 260, 420, 620. Coins carry; score and moves reset. The last move can win. A winning chain resolves completely before the round transitions.
-- No passives, face modifications, shop, or starting tokens in this build.
+- 6×6 board; match 3+ identical numbers horizontally or vertically. Each pip value always has the same colour, so matching colour and number are equivalent. Symbols have no pip value and never form matches.
+- Swap adjacent ordinary dice to make a match. Invalid swaps are free. Swapping a special with any neighbour is legal, costs one move and activates it at its destination.
+- Special dice carry a visible multiplier (default ×2 for all five types). Their swapped neighbour is always affected, even outside the effect's shape.
+- Column clears the destination column. Bomb clears the clipped 3×3 area. Number sweep clears the swapped neighbour's number/colour. Special sweep clears other specials. Coin clears its swapped neighbour and awards one coin.
+- Other specials hit by an effect activate once. Chained Number sweeps inherit the original swapped pip value. Swapping two specials fires both; Number sweeps in such a combination clear all numbered dice.
+- A normal match scores pip sum × (size Mult + low-pip bonus + cascade bonus). Size Mult: 3 dice = 1, 4 = 2, 5+ = 3. Intersections merge, counting each die once. Matches of ones/twos add +1 Mult.
+- A special scores affected pip sum × (its carried Mult + cascade bonus). Symbol dice themselves score zero pips. No size/low-pip bonus is added to special Mult.
+- Overlapping effects/matches count each numbered die once at the highest applicable Mult. Ties retain match scoring first, then the first activated special; multipliers do not stack across specials.
+- The first resolution has +0 cascade; subsequent falling matches get +1, +2, etc., resetting on each action.
+- Special spawn rates remain 2% each, mutually exclusive (10% total). Numbered pips are uniform before initial-board match rejection.
+- Three coins reroll numbered dice in a 2×2 area for no move cost. Their colours update with the new pips. Specials keep their symbol and multiplier.
+- Three rounds: ten moves each, targets 260/420/620. Coins carry; round score/moves reset. Resolve the entire action before checking victory, including the last move.
+- Dead boards reshuffle free. No passives, shop, starting tokens or permanent face modifications.
 
 ## Controls
 
@@ -59,9 +59,9 @@ The engine has a defensive 80-wave resolution ceiling. It settles a fresh board 
 
 ## Verification and limits
 
-Nineteen automated tests pass, including 250 seeded board sequences. Historical colour-board modelling covers 1,000 baseline runs (250 per policy) and 3,200 sensitivity runs (16 configurations × two policies × 100 seeds). Every example trace is replayed, and every run checks score/coin accounting. No action or cascade ceilings were reached.
+28 automated tests pass, including 250 seeded board sequences. The current pilot covers 200 complete runs across four policies plus 300 multiplier-sensitivity runs. All runs enforce exact score/coin accounting, and stored example traces replay. No action or cascade ceilings were reached.
 
-Baseline full-run clears are 11.6% for random swaps, 26.4% for immediate-score greedy, 34.0% for greedy with aggressive coin spending, and 69.6% for the sampled planner. These are policy-specific bot results, not human win-rate estimates. Confidence intervals, configuration, source hashes and raw run data accompany the [baseline report](modelling/results/baseline/report.md) and [sensitivity report](modelling/results/sensitivity/report.md).
+See the [current baseline report](modelling/results/swap-specials/report.md) and [multiplier sensitivity report](modelling/results/swap-mult-sensitivity/report.md) for source hashes, seed counts and confidence intervals. These are bot results, not human win-rate estimates. Earlier colour-board and bone-dice results remain historical.
 
 ```sh
 npm run simulate:smoke
@@ -83,4 +83,10 @@ Browser testing uses a 390×844 embedded phone viewport and desktop. The test br
 
 ## Bone dice update (0.1.2)
 
-Special sweep replaces colour sweep: it targets every special die, triggering normal special chains. The internal `color` key is retained for saves and telemetry. Reports in `modelling/results/baseline` and `sensitivity` describe the previous engine and are historical; current-engine results are in `modelling/results/bone`.
+Special sweep replaces colour sweep: it targets every special die, triggering normal special chains. The internal `color` key is retained for saves and telemetry. Reports in `modelling/results/baseline` and `sensitivity` describe earlier engines and are historical after 0.2.0. Current symbol-swap results are in `modelling/results/swap-specials`.
+
+## Symbol swaps (0.2.0)
+
+The live game and policies share special-aware legal swaps and first-wave previews. Run telemetry includes direct special swaps, chained activations and score attributed per special type. Multiplier sensitivity scenarios test ×1/×2/×3 using the carried values from the same engine. Older baseline, sensitivity and bone reports are historical and carry their original engine hashes.
+
+Version-1 saves migrate existing specials to symbol-only dice at ×2 and map ordinary colours to their pips. Existing progress remains; older score history reflects the rules used at that time. New runs provide a clean comparison for balancing.

@@ -1,5 +1,5 @@
 const TYPES = ["column", "color", "number", "bomb", "coin"];
-const COLORS = ["Coral", "Teal", "Amber", "Violet"];
+const COLORS = ["Coral", "Amber", "Green", "Blue", "Violet", "Rose"];
 const DEFAULTS = {
   moves: 10,
   targets: [260, 420, 620],
@@ -12,9 +12,14 @@ const RULES = Object.freeze({
   lowMult: 1,
   sizeMult: [1, 2, 3],
   maxWaves: 80,
+  specialMult: { column: 2, color: 2, number: 2, bomb: 2, coin: 2 },
 });
 function rulesFor(config) {
-  return { ...RULES, ...config.rules };
+  return {
+    ...RULES,
+    ...config.rules,
+    specialMult: { ...RULES.specialMult, ...config.rules?.specialMult },
+  };
 }
 const clone = (x) => structuredClone(x);
 function random(s) {
@@ -37,7 +42,23 @@ function die(s) {
       break;
     }
   }
-  return { id: s.nextId++, n, color, special };
+  return {
+    id: s.nextId++,
+    n: special ? null : n,
+    color: special ? null : n - 1,
+    special,
+    ...(special ? { mult: rulesFor(s.config).specialMult[special] } : {}),
+  };
+}
+function numbered(d) {
+  return Boolean(
+    d && !d.special && Number.isInteger(d.n) && d.n >= 1 && d.n <= 6,
+  );
+}
+function specialMultiplier(d, config = DEFAULTS) {
+  return Number.isFinite(d.mult) && d.mult >= 1
+    ? d.mult
+    : rulesFor(config).specialMult[d.special];
 }
 function matches(b) {
   const runs = [];
@@ -46,11 +67,11 @@ function matches(b) {
       let run = [];
       for (let p = 0; p <= 6; p++) {
         let i = axis ? p * 6 + line : line * 6 + p;
-        if (p < 6 && b[i] && (!run.length || b[i].n === b[run[0]].n))
+        if (p < 6 && numbered(b[i]) && (!run.length || b[i].n === b[run[0]].n))
           run.push(i);
         else {
           if (run.length >= 3) runs.push(run);
-          run = p < 6 && b[i] ? [i] : [];
+          run = p < 6 && numbered(b[i]) ? [i] : [];
         }
       }
     }
@@ -90,7 +111,8 @@ function legalMoves(b) {
       swap(b, a, c);
       const groups = matches(b);
       swap(b, a, c);
-      if (groups.length) out.push({ a, b: c, groups });
+      if (groups.length || b[a].special || b[c].special)
+        out.push({ a, b: c, groups });
     }
   return out;
 }
@@ -100,10 +122,12 @@ function freshBoard(s) {
     for (let i = 0; i < 36; i++) {
       let d = die(s);
       while (
-        (i % 6 > 1 && b[i - 1].n === d.n && b[i - 2].n === d.n) ||
-        (i >= 12 && b[i - 6].n === d.n && b[i - 12].n === d.n)
+        !d.special &&
+        ((i % 6 > 1 && b[i - 1].n === d.n && b[i - 2].n === d.n) ||
+          (i >= 12 && b[i - 6].n === d.n && b[i - 12].n === d.n))
       )
         d.n = 1 + Math.floor(random(s) * 6);
+      d.color = d.special ? null : d.n - 1;
       b.push(d);
     }
     if (legalMoves(b).length) return b;
@@ -112,7 +136,7 @@ function freshBoard(s) {
 }
 function newGame(seed = Date.now() >>> 0, config = DEFAULTS) {
   const s = {
-    version: 1,
+    version: 2,
     seed: seed >>> 0,
     rng: seed >>> 0,
     nextId: 1,
@@ -130,7 +154,7 @@ function newGame(seed = Date.now() >>> 0, config = DEFAULTS) {
   s.board = freshBoard(s);
   return s;
 }
-function effect(b, i, type) {
+function effect(b, i, type, targetN = b[i].n, combo = false) {
   const d = b[i],
     r = Math.floor(i / 6),
     c = i % 6;
@@ -139,73 +163,150 @@ function effect(b, i, type) {
     if (type === "column") yes = j % 6 === c;
     // Legacy type key retained for existing saves; colour now denotes special dice.
     if (type === "color") yes = Boolean(x.special);
-    if (type === "number") yes = x.n === d.n;
+    if (type === "number") yes = numbered(x) && (combo || x.n === targetN);
     if (type === "bomb")
       yes = Math.abs(Math.floor(j / 6) - r) <= 1 && Math.abs((j % 6) - c) <= 1;
     return yes ? [j] : [];
   });
 }
-function wave(b, groups, depth, config) {
-  const natural = new Set(groups.flat()),
-    cleared = new Set(natural),
-    queue = [...natural],
-    activations = [];
-  let coins = 0;
-  for (let q = 0; q < queue.length; q++) {
-    const i = queue[q],
-      d = b[i];
-    if (!d.special) continue;
-    activations.push({ index: i, type: d.special });
-    if (d.special === "coin") coins++;
-    for (const j of effect(b, i, d.special))
-      if (!cleared.has(j)) {
-        cleared.add(j);
-        queue.push(j);
-      }
-  }
+// Roots refer to positions after the swap. Their partner is always affected.
+function swapRoots(b, a, c) {
+  const combo = Boolean(b[a].special && b[c].special);
+  return [a, c]
+    .filter((i) => b[i].special)
+    .map((index) => ({
+      index,
+      partner: index === a ? c : a,
+      targetN: b[index === a ? c : a].n,
+      combo,
+      trigger: "swap",
+    }));
+}
+function wave(b, groups, depth, config, roots = []) {
   const rules = rulesFor(config),
     cascade = depth * rules.cascadeStep;
-  const entries = groups.map((g) => {
+  const cleared = new Set(),
+    claims = new Map(),
+    candidates = [],
+    activations = [],
+    visited = new Set();
+  const queue = roots.map((r) => ({ ...r }));
+  const direct = new Set(roots.map((r) => r.index));
+  const claim = (i, entry) => {
+    cleared.add(i);
+    if (!numbered(b[i])) return;
+    if (!claims.has(i) || entry.mult > claims.get(i).mult) claims.set(i, entry);
+  };
+  for (const g of groups) {
     const size = rules.sizeMult[g.length >= 5 ? 2 : g.length === 4 ? 1 : 0];
     const low = config.lowBonus && b[g[0]].n <= 2 ? rules.lowMult : 0;
-    const pips = g.reduce((a, i) => a + b[i].n, 0),
-      mult = size + cascade + low;
-    return {
-      indices: g,
-      pips,
-      mult,
+    const entry = {
+      kind: "match",
+      matchSize: g.length,
       size,
       low,
       cascade,
-      score: pips * mult,
-      label: `${g.length} \xD7 ${b[g[0]].n}`,
-      kind: "match",
+      mult: size + low + cascade,
+      label: `${g.length} × ${b[g[0]].n}`,
     };
-  });
-  const blast = [...cleared].filter((i) => !natural.has(i));
-  if (blast.length) {
-    const pips = blast.reduce((a, i) => a + b[i].n, 0);
-    entries.push({
-      indices: blast,
-      pips,
-      mult: 1 + cascade,
-      size: 1,
+    candidates.push(entry);
+    for (const i of g) claim(i, entry);
+  }
+  let coins = 0;
+  for (let q = 0; q < queue.length; q++) {
+    const r = queue[q],
+      d = b[r.index];
+    if (!d?.special || visited.has(r.index)) continue;
+    visited.add(r.index);
+    cleared.add(r.index);
+    const size = specialMultiplier(d, config);
+    activations.push({
+      index: r.index,
+      type: d.special,
+      mult: size,
+      trigger: direct.has(r.index) ? "swap" : "chain",
+      targetN: r.targetN,
+    });
+    if (d.special === "coin") coins++;
+    const label = {
+      column: "Column",
+      color: "Special sweep",
+      number: "Number sweep",
+      bomb: "Bomb",
+      coin: "Coin",
+    }[d.special];
+    const entry = {
+      kind: "blast",
+      specialType: d.special,
+      sourceIndex: r.index,
+      size,
       low: 0,
       cascade,
-      score: pips * (1 + cascade),
-      label: "Special clears",
-      kind: "blast",
-    });
+      mult: size + cascade,
+      label,
+    };
+    candidates.push(entry);
+    const targets = new Set([
+      r.index,
+      ...effect(b, r.index, d.special, r.targetN, r.combo),
+    ]);
+    if (Number.isInteger(r.partner)) targets.add(r.partner);
+    for (const i of targets) {
+      claim(i, entry);
+      if (b[i].special && !visited.has(i))
+        queue.push({
+          index: i,
+          targetN: r.targetN,
+          combo: r.combo,
+          trigger: "chain",
+        });
+    }
   }
+  const entries = candidates
+    .map((e) => {
+      const indices = [...claims]
+        .filter(([, owner]) => owner === e)
+        .map(([i]) => i);
+      const pips = indices.reduce((sum, i) => sum + b[i].n, 0);
+      return {
+        ...e,
+        indices,
+        pips,
+        label:
+          e.kind === "match" && indices.length < e.matchSize
+            ? `${e.matchSize}-match · ${indices.length} dice`
+            : e.label,
+        score: pips * e.mult,
+      };
+    })
+    .filter((e) => e.indices.length);
   return {
     groups,
     cleared: [...cleared],
     activations,
     coins,
     entries,
-    score: entries.reduce((a, e) => a + e.score, 0),
+    score: entries.reduce((sum, e) => sum + e.score, 0),
     depth,
   };
+}
+// Upgrade saved boards without inventing pips for special dice.
+function restoreGame(saved) {
+  if (
+    !saved ||
+    ![1, 2].includes(saved.version) ||
+    saved.board?.length !== 36 ||
+    !saved.board.every((d) => TYPES.includes(d.special) || numbered(d))
+  )
+    return null;
+  const s = clone(saved);
+  s.version = 2;
+  s.board = s.board.map((d) =>
+    d.special
+      ? { ...d, n: null, color: null, mult: specialMultiplier(d, s.config) }
+      : { ...d, color: d.n - 1 },
+  );
+  return s;
 }
 function collapse(s, cleared) {
   const removed = new Set(cleared);
@@ -234,10 +335,12 @@ function act(original, action) {
   const s = clone(original),
     frames = [],
     rules = rulesFor(original.config);
+  let roots = [];
   if (action.type === "swap") {
     if (!adjacent(action.a, action.b)) return null;
     swap(s.board, action.a, action.b);
-    if (!matches(s.board).length) return null;
+    roots = swapRoots(s.board, action.a, action.b);
+    if (!matches(s.board).length && !roots.length) return null;
     s.moves--;
   } else if (action.type === "reroll") {
     if (
@@ -256,15 +359,19 @@ function act(original, action) {
       (r + 1) * 6 + c,
       (r + 1) * 6 + c + 1,
     ])
-      s.board[i] = { ...s.board[i], n: 1 + Math.floor(random(s) * 6) };
+      if (!s.board[i].special) {
+        const n = 1 + Math.floor(random(s) * 6);
+        s.board[i] = { ...s.board[i], n, color: n - 1 };
+      }
   } else return null;
   s.turn++;
   const initial = clone(s.board);
   let groups = matches(s.board),
     depth = 0,
     resolutionCapped = false;
-  while (groups.length) {
-    const f = wave(s.board, groups, depth, s.config);
+  while (groups.length || roots.length) {
+    const f = wave(s.board, groups, depth, s.config, roots);
+    roots = [];
     f.before = clone(s.board);
     s.score += f.score;
     s.total += f.score;
@@ -291,6 +398,10 @@ function act(original, action) {
   }
   const summary = {
     action: clone(action),
+    ruleVersion: 2,
+    directSpecials: frames
+      .flatMap((f) => f.activations)
+      .filter((a) => a.trigger === "swap").length,
     resolutionCapped,
     shuffled,
     coinsEarned: frames.reduce((a, f) => a + f.coins, 0),
@@ -303,6 +414,8 @@ function act(original, action) {
     entries: frames.flatMap((f) =>
       f.entries.map((e) => ({
         label: e.label,
+        kind: e.kind,
+        specialType: e.specialType,
         pips: e.pips,
         mult: e.mult,
         size: e.size,
@@ -330,9 +443,13 @@ function preview(b, a, c, config) {
   const next = clone(b);
   swap(next, a, c);
   const g = matches(next);
-  return g.length ? wave(next, g, 0, config) : null;
+  const roots = swapRoots(next, a, c);
+  return g.length || roots.length ? wave(next, g, 0, config, roots) : null;
 }
 export {
+  numbered,
+  specialMultiplier,
+  restoreGame,
   RULES,
   rulesFor,
   COLORS,

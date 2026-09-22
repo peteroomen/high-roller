@@ -1,6 +1,16 @@
 import { DEFAULTS, clone } from "../engine.mjs";
 export const SCENARIOS = {
   baseline: {},
+  "special-mult-1": {
+    rules: {
+      specialMult: { column: 1, color: 1, number: 1, bomb: 1, coin: 1 },
+    },
+  },
+  "special-mult-3": {
+    rules: {
+      specialMult: { column: 3, color: 3, number: 3, bomb: 3, coin: 3 },
+    },
+  },
   "no-specials": { rates: [0, 0, 0, 0, 0] },
   "double-specials": { rates: [4, 4, 4, 4, 4] },
   "no-low-bonus": { lowBonus: false },
