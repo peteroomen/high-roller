@@ -1,26 +1,28 @@
+import { TIMING } from "./presentation.mjs";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-// One stable body colour per pip value; specials use a separate dark material.
+// One stable body colour per pip value; specials use a bone material.
 const PIP_HEX = [
-  "#c65e55",
-  "#d5a544",
-  "#639354",
-  "#488daf",
-  "#8c70b1",
-  "#b7628a",
+  "#bd7b70",
+  "#c4aa70",
+  "#8da178",
+  "#7997ad",
+  "#9b88b6",
+  "#b8869a",
 ];
 const SPECIAL_HEX = Object.fromEntries(
-  ["column", "color", "number", "bomb", "coin"].map((t) => [t, "#353344"]),
+  ["column", "color", "number", "bomb", "coin", "row"].map((t) => [t, "#eee6d5"]),
 );
 const dieColor = (d) => (d.special ? SPECIAL_HEX[d.special] : PIP_HEX[d.n - 1]);
 const pipColor = (d) =>
-  d.special ? "#f6d98c" : d.n === 2 ? "#342a22" : "#fff4dc";
+  d.special ? "#51465e" : d.n === 2 ? "#342a22" : "#fff4dc";
 const SYMBOL = {
   column: "\u2195",
   color: "\u25C8",
   number: "#",
   bomb: "\u2739",
   coin: "$",
+  row: "↔",
 };
 const DOTS = {
   1: [[0, 0]],
@@ -121,6 +123,8 @@ class Board {
     grad.addColorStop(1, "#0000000b");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 160, 160);
+    ctx.fillStyle = "#493c2d12";
+    for(let i=0;i<210;i++) ctx.fillRect((i*47)%160,(i*73+Math.floor(i/7)*11)%160,1.3,1.3);
     ctx.fillStyle = ink;
     const scale = special ? 31 : 34,
       cy = special ? 72 : 80;
@@ -130,21 +134,18 @@ class Board {
       ctx.fill();
     }
     if (special) {
-      ctx.fillStyle = "#f6d98c";
-      ctx.font = "bold 76px sans-serif";
+      ctx.fillStyle = ink;
+      ctx.font = "bold 106px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(SYMBOL[special], 80, 68);
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 27px sans-serif";
-      ctx.fillText(`×${mult}`, 80, 128);
+      ctx.fillText(SYMBOL[special], 80, 83);
     }
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.MeshStandardMaterial({
       map: tex,
-      roughness: 0.36,
-      metalness: 0.05,
+      roughness: 0.68,
+      metalness: 0.01,
     });
     this.materials.set(key, mat);
     return mat;
@@ -224,9 +225,13 @@ class Board {
       this.render();
     });
   }
+  idle(b,amount) {
+    for(const d of b) if(d.special) { const m=this.meshes.get(d.id); if(m) m.rotation.z=amount*.07; }
+    this.render();
+  }
   async wobble(indices, board) {
     const meshes = indices.map((i) => this.meshes.get(board[i].id));
-    await this.animate(220, (t) => {
+    await this.animate(TIMING.shake, (t) => {
       for (const m of meshes)
         m.rotation.z = Math.sin(t * Math.PI * 4) * (1 - t) * 0.1;
       this.render();

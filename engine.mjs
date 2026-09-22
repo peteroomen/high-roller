@@ -1,9 +1,9 @@
-const TYPES = ["column", "color", "number", "bomb", "coin"];
+const TYPES = ["column", "color", "number", "bomb", "coin", "row"];
 const COLORS = ["Coral", "Amber", "Green", "Blue", "Violet", "Rose"];
 const DEFAULTS = {
   moves: 10,
   targets: [260, 420, 620],
-  rates: [2, 2, 2, 2, 2],
+  rates: [2, 2, 2, 2, 2, 2],
   lowBonus: true,
 };
 const RULES = Object.freeze({
@@ -12,7 +12,7 @@ const RULES = Object.freeze({
   lowMult: 1,
   sizeMult: [1, 2, 3],
   maxWaves: 80,
-  specialMult: { column: 2, color: 2, number: 2, bomb: 2, coin: 2 },
+  specialMult: { column: 2, color: 2, number: 2, bomb: 2, coin: 2, row: 2 },
 });
 function rulesFor(config) {
   return {
@@ -35,8 +35,8 @@ function die(s) {
     roll = random(s) * 100;
   let total = 0,
     special = null;
-  for (let k = 0; k < 5; k++) {
-    total += s.config.rates[k];
+  for (let k = 0; k < TYPES.length; k++) {
+    total += s.config.rates[k] ?? 0;
     if (roll < total) {
       special = TYPES[k];
       break;
@@ -107,11 +107,11 @@ function legalMoves(b) {
   const out = [];
   for (let a = 0; a < 36; a++)
     for (const c of [a % 6 < 5 ? a + 1 : -1, a < 30 ? a + 6 : -1]) {
-      if (c < 0) continue;
+      if (c < 0 || b[a].special || b[c].special) continue;
       swap(b, a, c);
       const groups = matches(b);
       swap(b, a, c);
-      if (groups.length || b[a].special || b[c].special)
+      if (groups.length)
         out.push({ a, b: c, groups });
     }
   return out;
@@ -130,17 +130,17 @@ function freshBoard(s) {
       d.color = d.special ? null : d.n - 1;
       b.push(d);
     }
-    if (legalMoves(b).length) return b;
+    if (legalActions(b).length) return b;
   }
   throw Error("Unable to construct playable board");
 }
 function newGame(seed = Date.now() >>> 0, config = DEFAULTS) {
   const s = {
-    version: 2,
+    version: 3,
     seed: seed >>> 0,
     rng: seed >>> 0,
     nextId: 1,
-    config: clone(config),
+    config: { ...clone(config), rates: TYPES.map((_, i) => config.rates[i] ?? 0) },
     round: 0,
     score: 0,
     total: 0,
@@ -154,33 +154,39 @@ function newGame(seed = Date.now() >>> 0, config = DEFAULTS) {
   s.board = freshBoard(s);
   return s;
 }
-function effect(b, i, type, targetN = b[i].n, combo = false) {
-  const d = b[i],
-    r = Math.floor(i / 6),
+function effect(b, i, type, targetN = b[i].n) {
+  const r = Math.floor(i / 6),
     c = i % 6;
   return b.flatMap((x, j) => {
     let yes = false;
     if (type === "column") yes = j % 6 === c;
+    if (type === "row") yes = Math.floor(j / 6) === r;
+    if (type === "coin") yes = Math.abs(Math.floor(j / 6) - r) + Math.abs(j % 6 - c) === 1;
     // Legacy type key retained for existing saves; colour now denotes special dice.
     if (type === "color") yes = Boolean(x.special);
-    if (type === "number") yes = numbered(x) && (combo || x.n === targetN);
+    if (type === "number") yes = numbered(x) && x.n === targetN;
     if (type === "bomb")
       yes = Math.abs(Math.floor(j / 6) - r) <= 1 && Math.abs((j % 6) - c) <= 1;
     return yes ? [j] : [];
   });
 }
-// Roots refer to positions after the swap. Their partner is always affected.
-function swapRoots(b, a, c) {
-  const combo = Boolean(b[a].special && b[c].special);
-  return [a, c]
-    .filter((i) => b[i].special)
-    .map((index) => ({
-      index,
-      partner: index === a ? c : a,
-      targetN: b[index === a ? c : a].n,
-      combo,
-      trigger: "swap",
-    }));
+function legalActions(b) {
+  return [...legalMoves(b).map(({a,b}) => ({type:"swap",a,b})),
+    ...b.flatMap((d,index) => d.special ? [{type:"activate",index}] : [])];
+}
+function mostCommonNumber(b) {
+  const counts = Array(7).fill(0);
+  for (const d of b) if (numbered(d)) counts[d.n]++;
+  return [6,5,4,3,2,1].reduce((best,n) => counts[n] > counts[best] ? n : best,6);
+}
+function activationRoots(b,index) {
+  return [{index,targetN:mostCommonNumber(b),trigger:"tap"}];
+}
+function previewAction(b,action,config) {
+  if(action.type === "swap") return preview(b,action.a,action.b,config);
+  if(action.type === "activate" && Number.isInteger(action.index) && b[action.index]?.special)
+    return wave(b,matches(b),0,config,activationRoots(b,action.index));
+  return null;
 }
 function wave(b, groups, depth, config, roots = []) {
   const rules = rulesFor(config),
@@ -203,6 +209,7 @@ function wave(b, groups, depth, config, roots = []) {
     const entry = {
       kind: "match",
       matchSize: g.length,
+      affected: [...g],
       size,
       low,
       cascade,
@@ -224,12 +231,13 @@ function wave(b, groups, depth, config, roots = []) {
       index: r.index,
       type: d.special,
       mult: size,
-      trigger: direct.has(r.index) ? "swap" : "chain",
+      trigger: direct.has(r.index) ? "tap" : "chain",
       targetN: r.targetN,
     });
     if (d.special === "coin") coins++;
     const label = {
       column: "Column",
+      row: "Row",
       color: "Special sweep",
       number: "Number sweep",
       bomb: "Bomb",
@@ -248,16 +256,15 @@ function wave(b, groups, depth, config, roots = []) {
     candidates.push(entry);
     const targets = new Set([
       r.index,
-      ...effect(b, r.index, d.special, r.targetN, r.combo),
+      ...effect(b, r.index, d.special, r.targetN),
     ]);
-    if (Number.isInteger(r.partner)) targets.add(r.partner);
+    entry.affected = [...targets];
     for (const i of targets) {
       claim(i, entry);
       if (b[i].special && !visited.has(i))
         queue.push({
           index: i,
           targetN: r.targetN,
-          combo: r.combo,
           trigger: "chain",
         });
     }
@@ -279,7 +286,7 @@ function wave(b, groups, depth, config, roots = []) {
         score: pips * e.mult,
       };
     })
-    .filter((e) => e.indices.length);
+    .filter((e) => e.indices.length || e.kind === "blast");
   return {
     groups,
     cleared: [...cleared],
@@ -294,13 +301,14 @@ function wave(b, groups, depth, config, roots = []) {
 function restoreGame(saved) {
   if (
     !saved ||
-    ![1, 2].includes(saved.version) ||
+    ![1, 2, 3].includes(saved.version) ||
     saved.board?.length !== 36 ||
     !saved.board.every((d) => TYPES.includes(d.special) || numbered(d))
   )
     return null;
   const s = clone(saved);
-  s.version = 2;
+  s.version = 3;
+  s.config.rates = TYPES.map((_,i) => s.config.rates[i] ?? (saved.version < 3 ? DEFAULTS.rates[i] : 0));
   s.board = s.board.map((d) =>
     d.special
       ? { ...d, n: null, color: null, mult: specialMultiplier(d, s.config) }
@@ -326,7 +334,7 @@ function reshuffle(s) {
       const j = Math.floor(random(s) * (i + 1));
       swap(b, i, j);
     }
-    if (!matches(b).length && legalMoves(b).length) return;
+    if (!matches(b).length && legalActions(b).length) return;
   }
   s.board = freshBoard(s);
 }
@@ -337,10 +345,13 @@ function act(original, action) {
     rules = rulesFor(original.config);
   let roots = [];
   if (action.type === "swap") {
-    if (!adjacent(action.a, action.b)) return null;
+    if (!adjacent(action.a, action.b) || s.board[action.a].special || s.board[action.b].special) return null;
     swap(s.board, action.a, action.b);
-    roots = swapRoots(s.board, action.a, action.b);
     if (!matches(s.board).length && !roots.length) return null;
+    s.moves--;
+  } else if (action.type === "activate") {
+    if (!Number.isInteger(action.index) || !s.board[action.index]?.special) return null;
+    roots = activationRoots(s.board,action.index);
     s.moves--;
   } else if (action.type === "reroll") {
     if (
@@ -392,16 +403,16 @@ function act(original, action) {
   if (s.score >= s.config.targets[s.round])
     s.status = s.round === s.config.targets.length - 1 ? "won" : "roundwon";
   else if (s.moves <= 0) s.status = "lost";
-  else if (!legalMoves(s.board).length) {
+  else if (!legalActions(s.board).length) {
     reshuffle(s);
     shuffled = true;
   }
   const summary = {
     action: clone(action),
-    ruleVersion: 2,
+    ruleVersion: 3,
     directSpecials: frames
       .flatMap((f) => f.activations)
-      .filter((a) => a.trigger === "swap").length,
+      .filter((a) => a.trigger === "tap").length,
     resolutionCapped,
     shuffled,
     coinsEarned: frames.reduce((a, f) => a + f.coins, 0),
@@ -439,14 +450,14 @@ function nextRound(s) {
   return n;
 }
 function preview(b, a, c, config) {
-  if (!adjacent(a, c)) return null;
+  if (!adjacent(a, c) || b[a].special || b[c].special) return null;
   const next = clone(b);
   swap(next, a, c);
   const g = matches(next);
-  const roots = swapRoots(next, a, c);
-  return g.length || roots.length ? wave(next, g, 0, config, roots) : null;
+  return g.length ? wave(next, g, 0, config) : null;
 }
 export {
+  legalActions, previewAction, mostCommonNumber,
   numbered,
   specialMultiplier,
   restoreGame,

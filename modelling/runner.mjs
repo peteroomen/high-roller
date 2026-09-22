@@ -8,6 +8,7 @@ import {
   clone,
   rulesFor,
 } from "../engine.mjs";
+import { pacing } from "../presentation.mjs";
 import { observe, makePolicy } from "./policies.mjs";
 const counts = () => Object.fromEntries(TYPES.map((k) => [k, 0]));
 const hash = (x) =>
@@ -45,7 +46,11 @@ export function runOne({
     policy,
     status: null,
     actions: 0,
+    pipFlights: 0,
+    multFlights: 0,
+    scoreAnimationMs: 0,
     swaps: 0,
+    taps: 0,
     rerolls: 0,
     coinsEarned: 0,
     coinsSpent: 0,
@@ -57,7 +62,7 @@ export function runOne({
     cappedResolutions: 0,
     totalScore: 0,
     points: { matchBase: 0, blastBase: 0, cascade: 0, low: 0 },
-    specialSwapActions: 0,
+    specialTapActions: 0,
     specialScore: counts(),
     specialSpawns: counts(),
     specialTriggers: counts(),
@@ -131,8 +136,8 @@ export function runOne({
       out = act(s, action);
     if (!out) throw Error("Invalid model action");
     m.actions++;
-    if (out.summary.directSpecials) m.specialSwapActions++;
-    m[action.type === "swap" ? "swaps" : "rerolls"]++;
+    if (out.summary.directSpecials) m.specialTapActions++;
+    m[action.type === "swap" ? "swaps" : action.type === "activate" ? "taps" : "rerolls"]++;
     m.coinsEarned += out.summary.coinsEarned;
     m.coinsSpent += out.summary.coinsSpent;
     if (action.type === "reroll") {
@@ -144,6 +149,7 @@ export function runOne({
     m.waveCounts.push(out.frames.length);
     m.scoresPerAction.push(out.summary.score);
     for (const f of out.frames) {
+      for(const [key,value] of Object.entries(pacing(f))) m[key]+=value;
       register(f.before);
       register(f.after);
       m.depthHistogram[f.depth + 1] = (m.depthHistogram[f.depth + 1] || 0) + 1;
@@ -290,9 +296,13 @@ export function aggregate(runs, roundCount = 3) {
     }),
     score: quantiles(runs.map((r) => r.totalScore)),
     actions: quantiles(runs.map((r) => r.actions)),
+    pipFlights: sum("pipFlights"),
+    multFlights: sum("multFlights"),
+    scoreAnimationSeconds: quantiles(runs.map(r=>r.scoreAnimationMs/1000)),
     wavesPerAction: quantiles(runs.flatMap((r) => r.waveCounts)),
     scorePerAction: quantiles(runs.flatMap((r) => r.scoresPerAction)),
     swaps: sum("swaps"),
+    taps: sum("taps"),
     rerolls: sum("rerolls"),
     runsUsingReroll: runs.filter((r) => r.rerolls > 0).length,
     coinsEarned: sum("coinsEarned"),
@@ -303,7 +313,7 @@ export function aggregate(runs, roundCount = 3) {
     shuffles: sum("shuffles"),
     cappedResolutions: sum("cappedResolutions"),
     points: merge("points"),
-    specialSwapActions: sum("specialSwapActions"),
+    specialTapActions: sum("specialTapActions"),
     specialScore: merge("specialScore"),
     specialSpawns: merge("specialSpawns"),
     specialTriggers: merge("specialTriggers"),

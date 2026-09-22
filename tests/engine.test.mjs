@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   newGame,
+  legalActions, previewAction, mostCommonNumber,
   preview,
   restoreGame,
   matches,
@@ -94,7 +95,7 @@ test("falling preserves face, color, special, and identity", () => {
 test("seeded games and serialized saves replay identically", () => {
   let s = newGame(42);
   assert.deepEqual(s, newGame(42));
-  const action = { type: "swap", ...legalMoves(s.board)[0] };
+  const action = legalActions(s.board)[0];
   assert.deepEqual(act(s, action), act(JSON.parse(JSON.stringify(s)), action));
   assert.equal(s.moves, 10);
 });
@@ -112,7 +113,7 @@ test("invalid swaps cost nothing and coin reroll uses three coins", () => {
 });
 test("last-move target completion wins before loss", () => {
   const s = newGame(42, { ...DEFAULTS, moves: 1, targets: [1, 1, 1] });
-  const r = act(s, { type: "swap", ...legalMoves(s.board)[0] });
+  const r = act(s, legalActions(s.board)[0]);
   assert.equal(r.state.status, "roundwon");
   const n = nextRound(r.state);
   assert.equal(n.round, 1);
@@ -124,9 +125,9 @@ test("250 seeded boards resolve with valid scores and no deadlock", () => {
     let s = newGame(seed);
     for (let t = 0; t < 10 && s.status === "playing"; t++) {
       assert.equal(matches(s.board).length, 0);
-      const moves = legalMoves(s.board);
+      const moves = legalActions(s.board);
       assert.ok(moves.length);
-      const out = act(s, { type: "swap", ...moves[t % moves.length] });
+      const out = act(s, moves[t % moves.length]);
       assert.equal(
         out.state.score - s.score,
         out.frames.reduce((a, f) => a + f.score, 0),
@@ -158,7 +159,7 @@ test("special sweep activates every special once without targeting hidden colour
   const w = wave(b, [], 0, DEFAULTS, [
     { index: 0, partner: 1, targetN: b[1].n },
   ]);
-  assert.deepEqual(new Set(w.cleared), new Set([0, 1, 17, 35]));
+  assert.deepEqual(new Set(w.cleared), new Set([0, 17, 35, 11, 16, 23]));
   assert.equal(w.coins, 1);
   assert.equal(w.activations.length, 3);
   assert.equal(w.entries.find((e) => e.kind === "blast").size, 2);
@@ -177,46 +178,36 @@ test("symbol dice cannot form a number match, including three null faces", () =>
   [0, 1, 2].forEach((i) => special(b, i, "bomb"));
   assert.equal(matches(b).length, 0);
 });
-test("special swaps are legal both directions; destination column includes swapped neighbour", () => {
-  for (const [a, c] of [
-    [7, 8],
-    [8, 7],
-  ]) {
-    const s = controlled();
-    special(s.board, 7, "column", 3);
-    const p = preview(s.board, a, c, s.config),
-      out = act(s, { type: "swap", a, b: c });
-    assert.ok(p);
-    assert.ok(out);
-    const f = out.frames[0];
-    assert.deepEqual(new Set(f.cleared), new Set([2, 8, 14, 20, 26, 32, 7]));
-    const sum = f.cleared.reduce((v, i) => v + (f.before[i].n || 0), 0);
-    assert.equal(f.score, sum * 3);
-    assert.equal(p.score, f.score);
-    assert.equal(out.state.moves, 9);
-    assert.equal(out.summary.directSpecials, 1);
-    assert.equal(f.entries[0].sourceIndex, 8);
-  }
+test("tap clears its current column or row, with carried Mult and matching preview", () => {
+ for(const type of ["column","row"]) {
+  const s=controlled(); special(s.board,7,type,3);
+  const action={type:"activate",index:7};
+  const p=previewAction(s.board,action,s.config), out=act(s,action), f=out.frames[0];
+  assert.deepEqual(new Set(f.cleared),new Set(type==="column"?[1,7,13,19,25,31]:[6,7,8,9,10,11]));
+  assert.equal(f.score,f.cleared.reduce((v,i)=>v+(f.before[i].n||0),0)*3);
+  assert.equal(p.score,f.score); assert.equal(out.state.moves,9);
+  assert.equal(out.summary.directSpecials,1); assert.equal(f.entries[0].sourceIndex,7);
+  assert.deepEqual(f.entries[0].affected,f.cleared);
+  assert.ok(legalActions(s.board).some(a=>a.type==="activate"&&a.index===7));
+  assert.equal(act(s,{type:"swap",a:7,b:8}),null);
+  assert.equal(act(s,{type:"activate",index:8}),null);
+ }
 });
-test("number sweep targets the swapped neighbour rather than carrying a number", () => {
-  const s = controlled();
-  special(s.board, 7, "number", 2);
-  const n = s.board[8].n;
-  const out = act(s, { type: "swap", a: 7, b: 8 }),
-    f = out.frames[0];
-  assert.equal(f.before[8].n, null);
-  assert.ok(f.cleared.includes(7));
-  assert.ok(f.cleared.filter((i) => i !== 8).every((i) => f.before[i].n === n));
-  assert.equal(f.score, f.cleared.filter((i) => i !== 8).length * n * 2);
+test("number sweep chooses most common number, breaking ties toward higher pips",()=>{
+ const s=controlled(); special(s.board,7,"number");
+ const n=mostCommonNumber(s.board); assert.equal(n,6);
+ const f=act(s,{type:"activate",index:7}).frames[0];
+ assert.ok(f.cleared.filter(i=>i!==7).every(i=>f.before[i].n===n));
+ assert.equal(f.score,(f.cleared.length-1)*n*2);
+ s.board[0].n=2; assert.equal(mostCommonNumber(s.board),2);
 });
-test("coin swap awards one coin and only scores its numbered neighbour", () => {
-  const s = controlled();
-  special(s.board, 7, "coin", 4);
-  const n = s.board[8].n;
-  const f = act(s, { type: "swap", a: 7, b: 8 }).frames[0];
-  assert.deepEqual(new Set(f.cleared), new Set([7, 8]));
-  assert.equal(f.coins, 1);
-  assert.equal(f.score, n * 4);
+test("coin clears orthogonal neighbours, clips at edges and awards one coin",()=>{
+ for(const [index,targets] of [[7,[1,6,7,8,13]],[0,[0,1,6]]]) {
+  const s=controlled(); special(s.board,index,"coin",4);
+  const f=act(s,{type:"activate",index}).frames[0];
+  assert.deepEqual(new Set(f.cleared),new Set(targets)); assert.equal(f.coins,1);
+  assert.equal(f.score,targets.reduce((sum,i)=>sum+(s.board[i].n||0),0)*4);
+ }
 });
 test("overlapping special effects apply the largest Mult once, without match bonuses", () => {
   const b = fixture();
@@ -235,22 +226,19 @@ test("overlapping special effects apply the largest Mult once, without match bon
     f.entries.flatMap((e) => e.indices).length,
   );
 });
-test("two swapped specials trigger both and number-sweep combo clears numbered dice", () => {
-  const s = controlled();
-  special(s.board, 7, "number");
-  special(s.board, 8, "coin");
-  const f = act(s, { type: "swap", a: 7, b: 8 }).frames[0];
-  assert.equal(f.cleared.length, 36);
-  assert.equal(f.activations.length, 2);
-  assert.equal(f.coins, 1);
-  assert.equal(f.score, f.before.reduce((v, d) => v + (d.n || 0), 0) * 2);
+test("tapped horizontal clear chains a vertical clear exactly once",()=>{
+ const s=controlled(); special(s.board,7,"row"); special(s.board,8,"column");
+ const f=act(s,{type:"activate",index:7}).frames[0];
+ assert.equal(f.activations.length,2); assert.equal(f.cleared.length,11);
+ assert.equal(f.activations[1].trigger,"chain");
+ assert.equal(f.score,f.cleared.reduce((sum,i)=>sum+(s.board[i].n||0),0)*2);
 });
 test("chained number sweep inherits original target and activates only once", () => {
   const s = controlled();
   special(s.board, 7, "color");
   special(s.board, 23, "number", 3);
-  const target = s.board[8].n;
-  const f = act(s, { type: "swap", a: 7, b: 8 }).frames[0];
+  const target = mostCommonNumber(s.board);
+  const f = act(s, { type: "activate", index: 7 }).frames[0];
   assert.equal(f.activations.find((a) => a.index === 23).targetN, target);
   assert.equal(f.activations.find((a) => a.index === 23).trigger, "chain");
   assert.ok(
@@ -273,8 +261,16 @@ test("old saves migrate without special pips and new saves resume exactly", () =
   s.version = 1;
   s.board[7].special = "bomb";
   const migrated = restoreGame(s);
-  assert.equal(migrated.version, 2);
+  assert.equal(migrated.version, 3);
   assert.equal(migrated.board[7].n, null);
   assert.equal(migrated.board[7].mult, 2);
   assert.deepEqual(restoreGame(JSON.parse(JSON.stringify(migrated))), migrated);
+});
+
+test("horizontal spawn rate is independent and omitted rates stay disabled",()=>{
+ const s=newGame(17,{...DEFAULTS,rates:[0,0,0,0,0,100]});
+ assert.ok(s.board.every(d=>d.special==="row"));
+ assert.equal(legalActions(s.board).length,36);
+ assert.ok(act(s,{type:"activate",index:0}));
+ assert.ok(newGame(17,{...DEFAULTS,rates:[0,0,0,0,0]}).board.every(d=>!d.special));
 });

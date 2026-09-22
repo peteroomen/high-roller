@@ -1,3 +1,4 @@
+import { TIMING } from "./presentation.mjs";
 import { dieColor, pipColor, SYMBOL } from "./board.js";
 const dots = {
   1: [4],
@@ -27,7 +28,7 @@ class CSSBoard {
     return Array.from(
       { length: 6 },
       (_, i) =>
-        `<div class="face face-${i}" style="--die:${dieColor(d)};--pip:${pipColor(d)}">${d.special ? `<span class="special-glyph">${SYMBOL[d.special]}</span><span class="special-mult">×${d.mult ?? 2}</span>` : `<div class="pip-grid">${Array.from({ length: 9 }, (_, p) => `<i class="${dots[d.n].includes(p) ? "pip" : ""}"></i>`).join("")}</div>`}</div>`,
+        `<div class="face face-${i}" style="--die:${dieColor(d)};--pip:${pipColor(d)}">${d.special ? `<span class="special-glyph">${SYMBOL[d.special]}</span>` : `<div class="pip-grid">${Array.from({ length: 9 }, (_, p) => `<i class="${dots[d.n].includes(p) ? "pip" : ""}"></i>`).join("")}</div>`}</div>`,
     ).join("");
   }
 
@@ -95,9 +96,12 @@ class CSSBoard {
       }
     });
   }
+  idle(b,amount) {
+    for(const d of b) if(d.special) {const m=this.meshes.get(d.id); if(m) m.cube.style.transform=`rotateX(10deg) rotateY(-12deg) rotateZ(${amount*5}deg)`;}
+  }
   async wobble(indices, b) {
     const ms = indices.map((i) => this.meshes.get(b[i].id));
-    await this.animate(220, (t) => {
+    await this.animate(TIMING.shake, (t) => {
       for (const m of ms)
         if (m)
           m.cube.style.transform = `rotateX(10deg) rotateY(-12deg) rotateZ(${Math.sin(t * Math.PI * 4) * (1 - t) * 8}deg)`;

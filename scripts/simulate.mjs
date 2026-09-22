@@ -1,4 +1,4 @@
-import { newGame, act, nextRound, legalMoves, preview } from "../engine.mjs";
+import { newGame, act, nextRound, legalActions, previewAction } from "../engine.mjs";
 const rows = [];
 for (const strategy of ["first", "greedy"]) {
   let clears = [0, 0, 0], totalMoves = 0, waves = 0, specials = 0, coins = 0;
@@ -10,10 +10,10 @@ for (const strategy of ["first", "greedy"]) {
         s = nextRound(s);
         continue;
       }
-      const moves = legalMoves(s.board);
+      const moves = legalActions(s.board);
       let m = moves[0];
-      if (strategy === "greedy") m = moves.map((m2) => ({ ...m2, score: preview(s.board, m2.a, m2.b, s.config).score })).sort((a, b) => b.score - a.score)[0];
-      const out = act(s, { type: "swap", a: m.a, b: m.b });
+      if (strategy === "greedy") m = moves.map((m2) => ({ ...m2, score: previewAction(s.board, m2, s.config).score })).sort((a, b) => b.score - a.score)[0];
+      const out = act(s, m);
       s = out.state;
       totalMoves++;
       waves += out.summary.waves;

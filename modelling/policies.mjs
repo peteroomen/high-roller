@@ -1,8 +1,8 @@
 import {
   act,
   clone,
-  legalMoves,
-  preview,
+  legalActions,
+  previewAction,
   rulesFor,
   random,
 } from "../engine.mjs";
@@ -20,9 +20,9 @@ export function observe(state) {
   };
 }
 function visibleSwaps(view) {
-  return legalMoves(view.board).map((m) => ({
-    action: { type: "swap", a: m.a, b: m.b },
-    immediate: preview(view.board, m.a, m.b, view.config),
+  return legalActions(view.board).map((action) => ({
+    action,
+    immediate: previewAction(view.board, action, view.config),
   }));
 }
 export function makePolicy(
@@ -58,7 +58,7 @@ export function makePolicy(
           completion = 0;
         for (const seed of seeds) {
           const simulated = {
-            version: 2,
+            version: 3,
             seed: 0,
             rng: seed,
             nextId: Math.max(...view.board.map((d) => d.id)) + 1,

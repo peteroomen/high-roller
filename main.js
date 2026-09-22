@@ -13,29 +13,32 @@ import {
   newGame,
   act,
   nextRound,
-  legalMoves,
+  legalActions,
   preview,
   clone,
   DEFAULTS,
   TYPES,
 } from "./engine.mjs";
 import { Board, SPECIAL_HEX, dieColor, SYMBOL } from "./board.js";
+import { scoringPlan, TIMING } from "./presentation.mjs";
 import { CSSBoard } from "./css-board.js";
 const $ = (id) => document.getElementById(id),
   fmt = (n) => n.toLocaleString();
 const names = {
   column: "Column sweeper",
+  row: "Row sweeper",
   color: "Special sweep",
   number: "Number sweep",
   bomb: "Bomb",
   coin: "Coin",
 };
 const descriptions = {
-  column: "Clears its destination column",
+  column: "Clears its column",
+  row: "Clears its row",
   color: "Clears all special dice",
-  number: "Clears the swapped number",
+  number: "Clears the most common number",
   bomb: "Clears a 3 \xD7 3 area",
-  coin: "Scores its neighbour + 1 coin",
+  coin: "Clears its four neighbours + 1 coin",
 };
 let prefs = {
   sound: true,
@@ -66,7 +69,7 @@ const cells = [];
 let viewBoard = state.board;
 $("special-list").innerHTML = TYPES.map(
   (t) =>
-    `<div class="special-item"><span class="special-token" style="background:${SPECIAL_HEX[t]};color:#fff4dc">${SYMBOL[t]}</span><div><b>${names[t]} ×${rulesFor(state.config).specialMult[t]}</b><small>${descriptions[t]}</small></div></div>`,
+    `<div class="special-item"><span class="special-token" style="background:${SPECIAL_HEX[t]};color:#51465e">${SYMBOL[t]}</span><div><b>${names[t]}</b><small>${descriptions[t]}</small></div></div>`,
 ).join("");
 function save() {
   try {
@@ -88,15 +91,15 @@ function preferences() {
   } catch {}
 }
 preferences();
-function animate(ms, fn = () => {}) {
+function animate(ms, fn = () => {}, fixed = false) {
   const token = epoch;
-  ms *= prefs.reduced ? 0.12 : prefs.fast ? 0.38 : 1;
+  if (!fixed) ms *= prefs.reduced ? 0.12 : prefs.fast ? 0.38 : 1;
   return new Promise((resolve, reject) => {
     let last = performance.now(),
       elapsed = 0;
     const tick = (now) => {
       if (token !== epoch) return reject(new Error("cancelled"));
-      if (!paused) elapsed += Math.min(60, now - last);
+      if (!paused && !document.hidden) elapsed += Math.min(60, now - last);
       last = now;
       const t = Math.min(1, elapsed / Math.max(1, ms));
       fn(t);
@@ -171,6 +174,7 @@ function renderCells(b) {
   });
 }
 function clearMarks() {
+  $("effects").replaceChildren();
   cells.forEach((c) =>
     c.classList.remove(
       "selected",
@@ -207,37 +211,69 @@ function hud() {
 }
 function resetCalc() {
   $("pips").textContent = "0";
-  $("mult").textContent = "1";
+  $("collected-total").textContent = "";
+  $("mult").textContent = "0";
   $("calc-label").textContent = "MAKE A MATCH";
   $("wave-label").textContent = "";
   $("calc-detail").textContent = "Size + cascade + low-pip bonus";
   $("last-gain").textContent = "";
 }
-function fly(indices, text, targetId, b) {
-  const target = $(targetId).getBoundingClientRect();
-  const positions =
-    typeof indices === "string"
-      ? [$(indices).getBoundingClientRect()]
-      : indices.map((i) => cells[i].getBoundingClientRect());
-  const x =
-      positions.reduce((a, r) => a + r.x + r.width / 2, 0) / positions.length,
-    y =
-      positions.reduce((a, r) => a + r.y + r.height / 2, 0) / positions.length;
+async function bang(id) {
+  sound("match", id === "mult" ? 3 : 1);
+  const el = $(id);
+  try {
+    await animate(TIMING.bang, t => {
+      if (!prefs.reduced) el.style.transform = `scale(${1+Math.sin(t*Math.PI)*.32}) rotate(${Math.sin(t*Math.PI*4)*(1-t)*5}deg)`;
+    });
+  } finally { el.style.transform = ""; }
+}
+async function fly(indices, text, targetId, add) {
+  const positions = indices.map(i => cells[i].getBoundingClientRect());
+  const x = positions.reduce((n,r)=>n+r.x+r.width/2,0)/positions.length;
+  const y = positions.reduce((n,r)=>n+r.y+r.height/2,0)/positions.length;
   const el = document.createElement("div");
-  el.className = "score-fly";
+  el.className = `score-fly ${targetId}-fly`;
   el.textContent = text;
+  el.dataset.phase = "appear";
+  el.style.left = x+"px"; el.style.top = y+"px";
   document.body.append(el);
-  return animate(460, (t) => {
-    const ease = t * t;
-    el.style.left = x + (target.x + target.width / 2 - x) * ease + "px";
-    el.style.top =
-      y +
-      (target.y + target.height / 2 - y) * ease -
-      Math.sin(t * Math.PI) * 35 +
-      "px";
-    el.style.opacity = String(1 - t * 0.5);
-    el.style.transform = `translate(-50%,-50%) scale(${1 - 0.3 * t})`;
-  }).finally(() => el.remove());
+  try {
+    await animate(TIMING.appear);
+    el.dataset.phase = "flight";
+    await animate(TIMING.flight,t=>{
+      const target = $(targetId).parentElement.getBoundingClientRect();
+      const tx=target.x+target.width/2, ty=target.bottom+19;
+      const ease=prefs.reduced ? 1 : 1-Math.pow(1-t,3);
+      el.style.left=x+(tx-x)*ease+"px";
+      el.style.top=y+(ty-y)*ease+"px";
+    });
+    el.dataset.phase = "hold";
+    // The arrival remains readable for half a second, even in fast mode.
+    await animate(TIMING.hold,()=>{},true);
+    el.dataset.phase = "add";
+    add();
+    el.remove();
+    await bang(targetId);
+  } finally { el.remove(); }
+}
+function outlineGroup(entry) {
+  const indices=entry.affected ?? entry.indices, selected=new Set(indices);
+  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.setAttribute("viewBox","0 0 600 600");
+  svg.setAttribute("class",`group-outline ${entry.kind}`);
+  let path="";
+  for(const i of indices){
+    const x=i%6*100,y=Math.floor(i/6)*100;
+    if(entry.kind === "blast") path+=`M${x+7},${y+7}h86v86h-86Z `;
+    else {
+      if(i<6 || !selected.has(i-6)) path+=`M${x},${y}h100 `;
+      if(i>=30 || !selected.has(i+6)) path+=`M${x},${y+100}h100 `;
+      if(i%6===0 || !selected.has(i-1)) path+=`M${x},${y}v100 `;
+      if(i%6===5 || !selected.has(i+1)) path+=`M${x+100},${y}v100 `;
+    }
+  }
+  const p=document.createElementNS(svg.namespaceURI,"path");p.setAttribute("d",path);svg.append(p);
+  $("effects").replaceChildren(svg);
 }
 function marks(indices, cls) {
   indices.forEach((i) => cells[i].classList.add(cls));
@@ -247,6 +283,8 @@ async function perform(action) {
   selected = null;
   rerollMode = false;
   clearMarks();
+  board.idle(state.board, 0);
+  idleActive=false;
   const outcome = act(state, action);
   if (!outcome) {
     busy = true;
@@ -270,6 +308,7 @@ async function perform(action) {
     display.coins -= rulesFor(state.config).rerollCost;
   hud();
   $("instruction").textContent = "";
+  $("last-gain").textContent = "";
   sound("swap");
   haptic();
   try {
@@ -281,67 +320,45 @@ async function perform(action) {
     for (const frame of outcome.frames) {
       clearMarks();
       renderCells(frame.before);
+      $("chain-label").textContent = frame.depth ? `${frame.depth+1} DEEP · +${frame.depth} MULT` : frame.activations.length ? "SPECIAL ACTIVATED" : "MATCH FOUND";
+      $("wave-label").textContent = frame.depth ? `CASCADE ${frame.depth+1}` : "FIRST WAVE";
+      $("pips").textContent = "0";
+      $("mult").textContent = "0";
+      $("collected-total").textContent = "";
+      $("calc-label").textContent = "COLLECTING PIPS";
+      $("calc-detail").textContent = "";
+      let collected=0;
+      for (const event of scoringPlan(frame)) {
+        if(event.kind === "pip") {
+          await board.wobble([event.index],frame.before);
+          await fly([event.index], `+${event.value}`, "pips",()=>{
+            collected+=event.value;
+            $("pips").textContent=collected;
+          });
+        } else {
+          const {entry,contributions}=event;
+          outlineGroup(entry);
+          $("calc-label").textContent=entry.label.toUpperCase();
+          $("collected-total").textContent=`${entry.pips} of ${collected} collected pips`;
+          $("pips").textContent=entry.pips;
+          $("mult").textContent="0";
+          let mult=0;
+          for(const [i,part] of contributions.entries()) {
+            $("calc-detail").textContent=part.label;
+            await fly(entry.affected ?? entry.indices,`${i ? '+' : '×'}${part.value}`,"mult",()=>{
+              mult+=part.value; $("mult").textContent=mult;
+            });
+          }
+          display.score+=entry.score;
+          $("last-gain").textContent=`+${fmt(entry.score)} points`;
+          hud();
+          await animate(TIMING.group);
+          clearMarks();
+        }
+      }
       if (!frame.entries.length) {
-        resetCalc();
-        $("calc-label").textContent = "SPECIALS";
-        $("mult").textContent = Math.max(
-          1,
-          ...frame.activations.map((a) => a.mult),
-        );
-        $("calc-detail").textContent = "Symbols have no pips";
-      }
-      marks(frame.groups.flat(), "matching");
-      $("chain-label").textContent = frame.depth
-        ? `${frame.depth + 1} DEEP \xB7 +${frame.depth} MULT`
-        : frame.activations.length
-          ? "SPECIAL ACTIVATED"
-          : "MATCH FOUND";
-      $("wave-label").textContent = frame.depth
-        ? `CASCADE ${frame.depth + 1}`
-        : "FIRST WAVE";
-      sound("match", frame.depth);
-      haptic(15);
-      await animate(230);
-      if (frame.activations.length) {
-        marks(
-          frame.cleared.filter((i) => !frame.groups.flat().includes(i)),
-          "blasted",
-        );
-        $("instruction").textContent = [
-          ...new Set(frame.activations.map((a) => names[a.type])),
-        ].join(" + ");
-        sound("match", frame.depth + 2);
-        await animate(280);
-      }
-      for (const entry of frame.entries) {
-        $("calc-label").textContent = entry.label.toUpperCase();
-        $("pips").textContent = "0";
-        $("mult").textContent = "1";
-        $("calc-detail").textContent = "Collecting pips\u2026";
-        await fly(entry.indices, "+" + entry.pips, "pips", frame.before);
-        $("pips").textContent = entry.pips;
-        $("calc-detail").textContent =
-          entry.kind === "blast"
-            ? `${entry.size} special${entry.cascade ? ` + ${entry.cascade} cascade` : ""}`
-            : `${entry.size} size${entry.cascade ? ` + ${entry.cascade} cascade` : ""}${entry.low ? " + 1 low pips" : ""}`;
-        await Promise.all([
-          fly(
-            entry.kind === "blast" ? [entry.sourceIndex] : entry.indices,
-            `${entry.size} ${entry.kind === "blast" ? "special" : "size"}`,
-            "mult",
-          ),
-          ...(entry.cascade
-            ? [fly("chain-label", `+${entry.cascade} cascade`, "mult")]
-            : []),
-          ...(entry.low ? [fly("calc-detail", "+1 low pips", "mult")] : []),
-        ]);
-        $("mult").textContent = entry.mult;
-        await animate(140);
-        display.score += entry.score;
-        $("last-gain").textContent = `+${fmt(entry.score)} points`;
-        hud();
-        sound("match", frame.depth);
-        await animate(200);
+        $("calc-label").textContent="SPECIALS";
+        $("calc-detail").textContent="No numbered dice affected";
       }
       if (frame.coins) {
         display.coins += frame.coins;
@@ -367,7 +384,7 @@ async function perform(action) {
       outcome.frames.length > 1
         ? `${outcome.frames.length}-WAVE CASCADE`
         : "MAKE YOUR MOVE";
-    $("instruction").textContent = "Swipe a die \xB7 match 3 numbers";
+    $("instruction").textContent = "Match 3 numbers \xB7 tap specials";
     busy = false;
     hud();
     if (state.status !== "playing") {
@@ -397,10 +414,14 @@ function select(i) {
     perform({ type: "reroll", index: i });
     return;
   }
+  if (state.board[i].special) {
+    perform({type:"activate",index:i});
+    return;
+  }
   if (selected === i) {
     selected = null;
     clearMarks();
-    $("instruction").textContent = "Swipe a die \xB7 match 3 numbers";
+    $("instruction").textContent = "Match 3 numbers \xB7 tap specials";
     return;
   }
   if (selected !== null) {
@@ -430,6 +451,10 @@ for (let i = 0; i < 36; i++) {
   el.dataset.index = i;
   el.addEventListener("pointerdown", (e) => {
     if (busy || paused) return;
+    if (!rerollMode && state.board[i].special) {
+      pointer=null; suppressClickUntil=performance.now()+700;
+      e.preventDefault(); perform({type:"activate",index:i}); return;
+    }
     pointer = { i, x: e.clientX, y: e.clientY };
     el.setPointerCapture(e.pointerId);
   });
@@ -519,7 +544,7 @@ const closeButton =
   '<button class="close-modal" data-close aria-label="Close dialog">\xD7</button>';
 function rules() {
   modal(
-    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: \xD71 \xB7 4 dice: \xD72 \xB7 5+ dice: \xD73.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. The chain resets after your move.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Swap with a neighbour to activate. Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Score affected pips × the special’s displayed Mult, plus the cascade bonus. The swapped neighbour is included. Each die scores once at its highest available Mult; no match bonus is added to special Mult.</div><div class="rule">Swap two specials to trigger both. A Number sweep in that combination clears every numbered die. Chained Number sweeps inherit the original swapped number.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Reach the goal before your moves run out.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
+    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>3 dice: \xD71 \xB7 4 dice: \xD72 \xB7 5+ dice: \xD73.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. The chain resets after your move.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Tap to activate (1 move). Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Score affected pips × the special’s Mult (normally ×2), plus the cascade bonus. Each die scores once at its highest available Mult; no match bonus is added to special Mult.</div><div class="rule">Number sweeps target the most common number (ties go to the higher number). Chained sweeps use that same target. Specials hit by another special activate once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Reach the goal before your moves run out.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
   );
   $("rules-ledger").onclick = ledger;
 }
@@ -531,7 +556,7 @@ function ledger() {
 }
 function pauseMenu() {
   modal(
-    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 02</p>`,
+    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 03</p>`,
   );
   for (const k of ["sound", "fast", "reduced"])
     $("pref-" + k).onchange = (e) => {
@@ -560,7 +585,7 @@ async function startNew(seed = Date.now() >>> 0, config = state.config) {
   await board.set(state.board, { duration: 0 });
   hud();
   $("chain-label").textContent = "MAKE YOUR MOVE";
-  $("instruction").textContent = "Swipe a die \xB7 match 3 numbers";
+  $("instruction").textContent = "Match 3 numbers \xB7 tap specials";
 }
 function endRound() {
   const win = state.status === "won",
@@ -608,6 +633,7 @@ function lab() {
       moves > 30 ||
       targets.some((n) => !Number.isInteger(n) || n < 1 || n > 999999) ||
       rates.some((n) => !Number.isFinite(n) || n < 0 || n > 20) ||
+      rates.reduce((a,b)=>a+b,0)>100 ||
       !Number.isInteger(seed) ||
       seed < 0 ||
       seed > 4294967295
@@ -620,7 +646,7 @@ function lab() {
   $("reset-test").onclick = () => startNew(Date.now() >>> 0, DEFAULTS);
   $("export-run").onclick = () => {
     const blob = new Blob(
-        [JSON.stringify({ build: "0.2.0", ...state }, null, 2)],
+        [JSON.stringify({ build: "0.3.0", ...state }, null, 2)],
         { type: "application/json" },
       ),
       url = URL.createObjectURL(blob),
@@ -652,15 +678,16 @@ $("reroll").onclick = () => {
   hud();
   $("instruction").textContent = rerollMode
     ? "Tap the top-left of a 2 \xD7 2 area."
-    : "Swipe a die \xB7 match 3 numbers";
+    : "Match 3 numbers \xB7 tap specials";
 };
 $("hint").onclick = () => {
   clearMarks();
   selected = null;
-  const list = legalMoves(state.board);
+  const list = legalActions(state.board);
   if (list.length) {
-    marks([list[0].a, list[0].b], "hinted");
-    $("instruction").textContent = "Swap the two outlined dice.";
+    const a=list[0];
+    marks(a.type === "activate" ? [a.index] : [a.a,a.b], "hinted");
+    $("instruction").textContent = a.type === "activate" ? "Tap the outlined special." : "Swap the two outlined dice.";
   }
 };
 $("calc-detail").parentElement.addEventListener("dblclick", ledger);
@@ -675,3 +702,14 @@ hud();
 save();
 resetCalc();
 if (state.status !== "playing") endRound();
+
+let idleActive=false;
+function idleTick(now) {
+  const enabled=!busy && !paused && !document.hidden && !prefs.reduced && state.status==="playing";
+  const phase=(now%4400)/650;
+  const amount=enabled && phase<1 ? Math.sin(phase*Math.PI*8)*Math.sin(phase*Math.PI) : 0;
+  if(amount || idleActive) board.idle(viewBoard,amount);
+  idleActive=Boolean(amount);
+  requestAnimationFrame(idleTick);
+}
+requestAnimationFrame(idleTick);

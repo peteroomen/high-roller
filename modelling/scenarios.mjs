@@ -3,26 +3,26 @@ export const SCENARIOS = {
   baseline: {},
   "special-mult-1": {
     rules: {
-      specialMult: { column: 1, color: 1, number: 1, bomb: 1, coin: 1 },
+      specialMult: { column: 1, color: 1, number: 1, bomb: 1, coin: 1, row: 1 },
     },
   },
   "special-mult-3": {
     rules: {
-      specialMult: { column: 3, color: 3, number: 3, bomb: 3, coin: 3 },
+      specialMult: { column: 3, color: 3, number: 3, bomb: 3, coin: 3, row: 3 },
     },
   },
-  "no-specials": { rates: [0, 0, 0, 0, 0] },
-  "double-specials": { rates: [4, 4, 4, 4, 4] },
+  "no-specials": { rates: [0, 0, 0, 0, 0, 0] },
+  "double-specials": { rates: [4, 4, 4, 4, 4, 4] },
   "no-low-bonus": { lowBonus: false },
   "no-cascade-bonus": { rules: { cascadeStep: 0 } },
-  "coin-rate-5": { rates: [2, 2, 2, 2, 5] },
+  "coin-rate-5": { rates: [2, 2, 2, 2, 5, 2] },
   "reroll-cost-2": { rules: { rerollCost: 2 } },
   "eight-moves": { moves: 8 },
   "twelve-moves": { moves: 12 },
   "targets-minus-20": { targets: [208, 336, 496] },
   "targets-plus-20": { targets: [312, 504, 744] },
   ...Object.fromEntries(
-    ["column", "color", "number", "bomb", "coin"].map((t, i) => [
+    ["column", "color", "number", "bomb", "coin", "row"].map((t, i) => [
       `without-${t}`,
       { rates: DEFAULTS.rates.map((n, j) => (i === j ? 0 : n)) },
     ]),
