@@ -61,7 +61,6 @@ const TRINKETS = [...MATCH_TIERS.flatMap(tier => ["pips", "mult"].map(stat => ({
   {id:'conductor',name:'Chain Reaction',research:true,description:'Final Mult bonus when one symbol special triggers another'},
   {id:'resonator',name:'Wild Resonance',research:true,description:'Final Mult bonus when a Wild is naturally matched'},
   {id:'spare',name:'Spare Die',research:true,description:'Extra single-die reroll charges each encounter'},
-  {id:'cluster',name:'Clingstone',research:true,description:'Natural matches also collect connected adjacent dice of the same number'},
 ];
 const has=(config,id)=>Boolean(config.trinkets?.includes(id));
 const activeSpecial=d=>['column','row','bomb','number','color'].includes(d?.special);
@@ -274,18 +273,6 @@ function previewAction(b,action,config) {
 function wave(b, groups, depth, config, roots = []) {
   const rules = rulesFor(config),
     cascade = depth * rules.cascadeStep;
-  const originalNatural=new Set(groups.flat());
-  if(rules.lab&&has(config,'cluster')) {
-    const expanded=[];
-    for(const group of groups){
-      const n=group.map(i=>b[i]).find(numbered)?.n??6,set=new Set(group),queue=[...group],distance=new Map(group.map(i=>[i,0]));
-      for(let at=0;at<queue.length;at++)if(group.length>=(rules.lab.clusterMinSize??3)&&distance.get(queue[at])<(rules.lab.clusterSteps??36))for(const i of [queue[at]-6,queue[at]+6,queue[at]-1,queue[at]+1])
-        if(adjacent(queue[at],i)&&!set.has(i)&&numbered(b[i])&&b[i].n===n){set.add(i);queue.push(i);distance.set(i,distance.get(queue[at])+1);}
-      for(let i=expanded.length-1;i>=0;i--)if(expanded[i].some(j=>set.has(j))){expanded[i].forEach(j=>set.add(j));expanded.splice(i,1);}
-      expanded.push([...set].sort((a,b)=>a-b));
-    }
-    groups=expanded;
-  }
   const cleared = new Set(),
     claims = new Map(),
     candidates = [],
@@ -398,12 +385,10 @@ function wave(b, groups, depth, config, roots = []) {
   if(depth>0&&has(config,'cascade')&&!config.rules?.lab?.echoX)bonuses.push({source:'cascade',value:rules.charmValues.cascade,op:'add',label:'Echo Die'});
   for(const i of natural) if(b[i].shiny)bonuses.push({indices:[i],value:rules.shinyFactor,op:'multiply',label:'Shiny'});
   const upgrades=activations.flatMap(a=>{const id={bomb:'bigbomb',column:'widecolumn',row:'widerow'}[a.type];return id&&has(config,id)?[id]:[];});
-  const clusterExtras=[...natural].filter(i=>!originalNatural.has(i)).length;
-  if(clusterExtras)upgrades.push('cluster');
   const pips=entries.reduce((n,e)=>n+e.pips,0), mult=entries.reduce((n,e)=>n+e.mult,0);
   for(const entry of entries) entry.score=pips*entry.mult;
   return {
-    groups, bonuses, upgrades,clusterExtras,
+    groups, bonuses, upgrades,
     numbers:[...new Set([...cleared].filter(i=>numbered(b[i])).map(i=>b[i].n))],
     goldMatches:[...natural].filter(i=>b[i].gold).length, shinyMatches:[...natural].filter(i=>b[i].shiny).length,
     naturalWild:[...natural].filter(i=>b[i].special==='wild').length,
@@ -484,7 +469,6 @@ function act(original, action) {
       s.board[action.index].special||s.board[action.from].special||s.board[action.index].n===s.board[action.from].n||
       (s.singleRerollsUsed??0)>=rerollLimit(s.config))return null;
     s.singleRerollsUsed=(s.singleRerollsUsed??0)+1;s.sculptUsed=true;
-    if(rules.lab.sculptMoveCost)s.moves-=rules.lab.sculptMoveCost;
     const n=s.board[action.from].n;s.board[action.index]={...s.board[action.index],n,color:n-1,converted:false};
   } else if (action.type === "reroll") {
     if (
@@ -520,7 +504,7 @@ function act(original, action) {
     roots = [];
     f.before = clone(s.board);
     f.numbers.forEach(n=>numbers.add(n));
-    if(numbers.size===6&&!rainbowPaid&&has(s.config,'rainbow')&&!rules.lab?.spectrumX&&!rules.lab?.spectrumRoundX) {f.bonuses.unshift({source:'rainbow',value:rules.charmValues.rainbow,op:'add',label:'Full Spectrum'});rainbowPaid=true;}
+    if(numbers.size===6&&!rainbowPaid&&has(s.config,'rainbow')&&!rules.lab?.spectrumX) {f.bonuses.unshift({source:'rainbow',value:rules.charmValues.rainbow,op:'add',label:'Full Spectrum'});rainbowPaid=true;}
     movePips+=f.pips; moveMult+=f.mult;
     for(const bonus of f.bonuses)moveMult=applyBonus(moveMult,bonus);
     f.score=Math.floor(movePips*moveMult)-moveScore;
@@ -540,8 +524,7 @@ function act(original, action) {
     }
     groups = matches(s.board);
   }
-  if(rules.lab)s.roundNumbers=[...new Set([...(s.roundNumbers??[]),...numbers])].sort();
-  for(const bonus of finalBonuses(frames,s.config,s.roundNumbers)) {
+  for(const bonus of finalBonuses(frames,s.config)) {
     const f=frames.at(-1);
     f.bonuses.push(bonus);moveMult=applyBonus(moveMult,bonus);
     const extra=Math.floor(movePips*moveMult)-moveScore;f.score+=extra;s.score+=extra;s.total+=extra;moveScore+=extra;f.runningMult=moveMult;
@@ -621,7 +604,7 @@ function canBuyPack(s,pack) {
 function trinketOffers(s) {
   if(s.config.disableTrinkets)return [];
   const offers=[],r=rulesFor(s.config);
-  while(offers.length<(r.lab?.shopOffers??4)){const eligible=TRINKETS.filter(t=>(!t.research||r.lab)&&!s.config.trinkets.includes(t.id)&&!offers.includes(t.id)&&!s.config.disabledTrinkets?.includes(t.id));const pick=weightedPick(s,eligible,t=>r.lab?.weights?.[t.id]??(t.tier?3:r.charmWeights[t.id]??2));if(!pick)break;offers.push(pick.id);}return offers;
+  while(offers.length<4){const eligible=TRINKETS.filter(t=>(!t.research||r.lab)&&!s.config.trinkets.includes(t.id)&&!offers.includes(t.id)&&!s.config.disabledTrinkets?.includes(t.id));const pick=weightedPick(s,eligible,t=>r.lab?.weights?.[t.id]??(t.tier?3:r.charmWeights[t.id]??2));if(!pick)break;offers.push(pick.id);}return offers;
 }
 function progressAction(original,action) {
   const s=clone(original), r=rulesFor(s.config);
@@ -667,7 +650,7 @@ function progressAction(original,action) {
     s.config.trinkets=s.config.trinkets.filter(id=>id!==trinketId);
     coinsEarned=Math.floor(trinketCost(TRINKETS.find(t=>t.id===trinketId),s.config)/2);s.coins+=coinsEarned;
   } else if(action.type==="next_round" && s.status==="shop") {
-    s.round++; s.score=0; s.moves=s.config.moves; s.singleRerollsUsed=0; delete s.sculptUsed;delete s.roundNumbers; s.status="playing";
+    s.round++; s.score=0; s.moves=s.config.moves; s.singleRerollsUsed=0; delete s.sculptUsed; s.status="playing";
     s.shop=null; s.board=freshBoard(s);
   } else return null;
   const summary={action:clone(action),ruleVersion:7,turn:s.turn,round:s.round+1,
@@ -689,20 +672,19 @@ function preview(b, a, c, config) {
 }
 function previewBoard(next,config,roots=[]) {
   const f=wave(next,matches(next),0,config,roots);let mult=f.mult;
-  if(f.numbers.length===6&&has(config,'rainbow')&&!config.rules?.lab?.spectrumX&&!config.rules?.lab?.spectrumRoundX)mult+=rulesFor(config).charmValues.rainbow;
+  if(f.numbers.length===6&&has(config,'rainbow')&&!config.rules?.lab?.spectrumX)mult+=rulesFor(config).charmValues.rainbow;
   for(const b of f.bonuses)mult=applyBonus(mult,b);
   for(const b of finalBonuses([f],config))mult=applyBonus(mult,b);
   f.score=Math.floor(f.pips*mult);return f;
 }
 // Research effects all settle once per complete action, after wave additions and Shiny.
-function finalBonuses(frames,config,roundNumbers=null) {
+function finalBonuses(frames,config) {
   if(!frames.length)return [];
   const r=rulesFor(config),l=r.lab??{},out=[];
   const add=(id,value,label)=>{if(has(config,id)&&value>1)out.push({source:id,value,op:'multiply',label});};
   if(l.echoX)add('cascade',1+l.echoX*Math.max(0,frames.length-1),'Echo Die');
   for(const [tier,factor] of Object.entries(l.tierX??{}))if(frames.some(f=>f.groups.some(g=>tierFor(g.length)===+tier)))add('mult-'+tier,factor,tier+' Match Mult');
   if(new Set(frames.flatMap(f=>f.numbers)).size===6)add('rainbow',l.spectrumX,'Full Spectrum');
-  if(new Set([...(roundNumbers??l.previewNumbers??[]),...frames.flatMap(f=>f.numbers)]).size===6)add('rainbow',l.spectrumRoundX,'Full Spectrum');
   if(frames.some(f=>f.activations.some(a=>a.trigger==='chain'&&['row','column','bomb','number','color'].includes(a.type))))add('conductor',l.chainX??2,'Chain Reaction');
   if(frames.some(f=>f.groups.flat().some(i=>(f.before??null)?.[i]?.special==='wild'))||frames.some(f=>f.naturalWild))add('resonator',l.wildX??2,'Wild Resonance');
   if(has(config,'quad'))out.push({source:'quad',value:r.charmValues.quad,op:'multiply',label:'Loaded Die'});

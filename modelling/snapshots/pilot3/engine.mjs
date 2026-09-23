@@ -279,7 +279,7 @@ function wave(b, groups, depth, config, roots = []) {
     const expanded=[];
     for(const group of groups){
       const n=group.map(i=>b[i]).find(numbered)?.n??6,set=new Set(group),queue=[...group],distance=new Map(group.map(i=>[i,0]));
-      for(let at=0;at<queue.length;at++)if(group.length>=(rules.lab.clusterMinSize??3)&&distance.get(queue[at])<(rules.lab.clusterSteps??36))for(const i of [queue[at]-6,queue[at]+6,queue[at]-1,queue[at]+1])
+      for(let at=0;at<queue.length;at++)if(distance.get(queue[at])<(rules.lab.clusterSteps??36))for(const i of [queue[at]-6,queue[at]+6,queue[at]-1,queue[at]+1])
         if(adjacent(queue[at],i)&&!set.has(i)&&numbered(b[i])&&b[i].n===n){set.add(i);queue.push(i);distance.set(i,distance.get(queue[at])+1);}
       for(let i=expanded.length-1;i>=0;i--)if(expanded[i].some(j=>set.has(j))){expanded[i].forEach(j=>set.add(j));expanded.splice(i,1);}
       expanded.push([...set].sort((a,b)=>a-b));
@@ -484,7 +484,6 @@ function act(original, action) {
       s.board[action.index].special||s.board[action.from].special||s.board[action.index].n===s.board[action.from].n||
       (s.singleRerollsUsed??0)>=rerollLimit(s.config))return null;
     s.singleRerollsUsed=(s.singleRerollsUsed??0)+1;s.sculptUsed=true;
-    if(rules.lab.sculptMoveCost)s.moves-=rules.lab.sculptMoveCost;
     const n=s.board[action.from].n;s.board[action.index]={...s.board[action.index],n,color:n-1,converted:false};
   } else if (action.type === "reroll") {
     if (

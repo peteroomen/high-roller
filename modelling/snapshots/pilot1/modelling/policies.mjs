@@ -23,7 +23,6 @@ export function observe(state) {
     moves: state.moves,
     singleRerollsUsed:state.singleRerollsUsed??0,
     sculptUsed:state.sculptUsed??false,
-    roundNumbers:clone(state.roundNumbers??[]),
   };
 }
 function visibleSwaps(view, cache) {

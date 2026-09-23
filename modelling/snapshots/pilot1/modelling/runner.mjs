@@ -15,7 +15,7 @@ const hash = (x) =>
   createHash("sha256").update(JSON.stringify(x)).digest("hex");
 export function fingerprint(s) {
   return hash({
-    rng: s.rng,faceConversions:s.faceConversions,singleRerollsUsed:s.singleRerollsUsed??0,sculptUsed:s.sculptUsed??false,roundNumbers:s.roundNumbers??[],
+    rng: s.rng,faceConversions:s.faceConversions,singleRerollsUsed:s.singleRerollsUsed??0,sculptUsed:s.sculptUsed??false,
     nextId: s.nextId,
     round: s.round,
     score: s.score,
@@ -78,7 +78,7 @@ export function runOne({
     naturalByPip: Array(6).fill(0),
     naturalScoreByPip: Array(6).fill(0),
     firstWaveGroupSizes: {}, cascadeGroupSizes: {}, singleRerolls:0,
-    sculpts:0,sculptLarge:0,batteryRefunds:0,clusterExtras:0,
+    sculpts:0,sculptLarge:0,batteryRefunds:0,
     boughtItems:{}, finalBuild:null,
     matchedGroupSizes: {},
     depthHistogram: {},
@@ -171,7 +171,6 @@ export function runOne({
     if (out.resolutionCapped) m.cappedResolutions++;
     if(s.status === "playing") {m.waveCounts.push(out.frames.length);m.scoresPerAction.push(out.summary.score);}
     for (const f of out.frames) {
-      m.clusterExtras+=f.clusterExtras??0;
       for(const [key,value] of Object.entries(pacing(f))) m[key]+=value;
       m.goldMatches+=f.goldMatches??0;m.shinyMatches+=f.shinyMatches??0;m.wildClears+=f.wildClears??0;
       for(const b of f.bonuses??[])if(b.source){m.trinketTriggers[b.source]++;m.trinketBonuses[b.source]+=b.value;}
@@ -303,7 +302,7 @@ export function aggregate(runs, roundCount = runs[0]?.roundCount ?? DEFAULTS.tar
     };
   return {
     runs: n,
-    sculpts:sum('sculpts'),sculptLarge:sum('sculptLarge'),batteryRefunds:sum('batteryRefunds'),clusterExtras:sum('clusterExtras'),
+    sculpts:sum('sculpts'),sculptLarge:sum('sculptLarge'),batteryRefunds:sum('batteryRefunds'),
     wins,
     censored: n - finished.length,
     winRate: wins / n,

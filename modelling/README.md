@@ -86,3 +86,25 @@ New opt-in engine rules: `singleRerollsPerRound` enables `reroll_single` on an o
 Telemetry distinguishes first-wave groups from refill cascades, counts single-die rerolls, records bought item IDs and per-encounter/final loadouts, upgrade levels and spawn rates. Research runner exports per-cell config/source identity, complete run rows, score/economy/clear-rate summaries and a replay-verified example. Confidence intervals use Wilson for wins and approximate paired intervals for matched-seed changes. Censored/capped resolutions and accounting assertions are explicit. Source identity is captured before each experiment begins; do not edit model sources while a study is running.
 
 Power arenas use the exact production engine, ten swaps and an unreachable goal, with free prescribed loadouts and no shopping. They measure conditional strength and score tails, not acquisition feasibility or full-game win rates. Each scenario stores individual scores for paired comparisons. Geometry tests exhaustively inspect visible swaps and all six one-die reroll outcomes on seeded stable boards; they do not inspect future RNG. Six-to-One rerolls correctly give the face 1 probability 2/6.
+
+## Playstyle laboratory (opt-in; not shipped)
+
+`modelling/configs/lab-final.json` is the frozen follow-up candidate. `rules.lab` gates the new shop pool and rules. Live defaults, UI and deployment remain unchanged. Research engine identity is the full exported config plus source hashes; numeric engine 7 alone does not identify a lab build.
+
+- End-of-action conditional ×Mult for Echo, tier-5/6 Mult dice, natural Wild matches and symbol chains; each applicable item settles once, after wave additions/Shiny and before Loaded Die. Tier Multipliers replace that item's old additive effect. They do not replace numbered-token levels or pip trinkets.
+- Full Spectrum records actually cleared numbered faces across an encounter. When all six have appeared, its final ×Mult applies to that action and later scoring actions. Reset each encounter; collecting Wilds does not invent missing numbered faces. Conversion prevents generated sixes as before.
+- Mimic Ring spends a single-reroll charge to copy an orthogonally adjacent ordinary numbered face, once per encounter. Finishes stay on the destination; special/finish copying is prohibited. Actual matches resolve immediately; counters reset. A tested variant also spent a swap and was rejected.
+- Clingstone extends qualifying natural groups into orthogonally adjacent equal-number ordinary dice. The final candidate requires an original group of four or more and only one adjacency step. Overlapping expanded groups merge without double-counting. Added dice belong to the natural match, affect its size and can trigger Gold/Shiny. It does not pull in an unmatched Wild. The expanded group's exact size selects the scoring tier.
+- Spare Die adds encounter charges; it remains available for experiments but has zero candidate offer weight. Battery Twenty refunds at most one spent charge per action collecting a Twenty, never above the initial budget; it is a rejected/test-only alternative unless the report says otherwise.
+- The candidate exposes six shop offers, still four owned slots, one pack and one pick per shop. Prices, weights, size rewards, Shiny factor, footprint prices and all proposed factors are in the frozen config.
+
+New laboratory policies cover flexible, cascade, four/five/six, symbol specials, Wild and Spectrum portfolios. `-patient` doubles the ordinary reroll threshold (0.35 rather than 0.18 of the best visible swap); `-cluster` prioritizes Clingstone over other items to test whether it is universally dominant. `lab-battery` prioritizes Twenty tokens as a deliberate replacement-die experiment. All policies see public observations only. They use exact visible first-wave scoring, enumerate possible reroll faces, and do not predict the real refill stream.
+
+New measurements: Mimic uses and immediate 5+ outcomes, Clingstone added dice and triggers, battery refunds, per-item final multiplier triggers, public encounter face collection, complete purchase/sale histories and per-round builds. Tests cover spending, no copied finishes, charge/refund limits, conditional once-only effects, preview/actual accounting, expanded-group overlap and seed replay. Every run asserts score/coin conservation. The two-stage prototype evolution and all rejected cases are documented in the report.
+
+```sh
+node modelling/lab-study.mjs heldout baseline,final 200 400001 all 6
+node modelling/lab-arenas.mjs modelling/configs/lab-final.json 120 600001
+```
+
+Each phase stores full configurations, per-policy summaries, compressed per-run rows and a replay-verified example. Historical pilot source snapshots match their recorded SHA-256s under `modelling/snapshots`; later phases automatically retain a `source` snapshot. Run from a historical snapshot to replay its trace. `pilot4-invalid-min-size` is explicitly discarded because a temporary conditional expansion could duplicate group membership; it contributes no evidence. Final held-out data must not be used for further tuning.
