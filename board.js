@@ -1,5 +1,6 @@
 import { TIMING } from "./presentation.mjs";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 // One stable body colour per pip value; specials use a bone material.
 const PIP_HEX = [
@@ -13,9 +14,9 @@ const PIP_HEX = [
 const SPECIAL_HEX = Object.fromEntries(
   ["column", "color", "number", "bomb", "twenty", "row", "wild", "shiny"].map((t) => [t, "#eee6d5"]),
 );
-const dieColor = (d) => (d.special ? SPECIAL_HEX[d.special] : PIP_HEX[d.n - 1]);
+const dieColor = (d) => (d.special ? SPECIAL_HEX[d.special] : d.gold ? "#d5a83c" : PIP_HEX[d.n - 1]);
 const pipColor = (d) =>
-  d.special ? "#51465e" : d.n === 2 ? "#342a22" : "#fff4dc";
+  d.special ? "#51465e" : d.gold ? "#493019" : d.n === 2 ? "#342a22" : "#fff4dc";
 const SYMBOL = {
   column: "\u2195",
   color: "\u25C8",
@@ -103,7 +104,13 @@ class Board {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.scene.add(new THREE.AmbientLight(16777215, 2));
+    this.scene.add(new THREE.AmbientLight(16777215, 1.1));
+    const room=new RoomEnvironment(),pmrem=new THREE.PMREMGenerator(this.renderer);
+    this.environment=pmrem.fromScene(room,.04);
+    this.scene.environment=this.environment.texture;
+    this.scene.environmentIntensity=.65;
+    room.dispose();pmrem.dispose();
+    this.finishTime={value:0};
     const light = new THREE.DirectionalLight(16772824, 3);
     light.position.set(-3, 6, 10);
     light.castShadow = true;
@@ -121,7 +128,7 @@ class Board {
     plane.position.z = -0.48;
     plane.receiveShadow = true;
     this.scene.add(plane);
-    this.geometry = new RoundedBoxGeometry(0.79, 0.79, 0.65, 3, 0.095);
+    this.geometry = new RoundedBoxGeometry(0.79, 0.79, 0.65, 5, 0.105);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(canvas.parentElement);
     this.resize();
@@ -145,11 +152,6 @@ class Board {
     grad.addColorStop(1, "#0000000b");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 160, 160);
-    // Cream bevel catches the light like the CSS dice's inset highlight.
-    ctx.beginPath();ctx.roundRect(5,5,150,150,22);
-    ctx.strokeStyle='#fff5dc88';ctx.lineWidth=5;ctx.stroke();
-    ctx.beginPath();ctx.roundRect(9,9,142,142,19);
-    ctx.strokeStyle='#fff9e32b';ctx.lineWidth=2;ctx.stroke();
     ctx.fillStyle = "#493c2d12";
     for(let i=0;i<210;i++) ctx.fillRect((i*47)%160,(i*73+Math.floor(i/7)*11)%160,1.3,1.3);
     ctx.fillStyle = ink;
@@ -172,15 +174,32 @@ class Board {
       if(special==='bomb')ctx.fill(path);else ctx.stroke(path);
       ctx.restore();
     }
-    if(gold) {ctx.strokeStyle='#ffe09b';ctx.lineWidth=10;ctx.strokeRect(9,9,142,142);ctx.fillStyle='#ffdf83';ctx.font='bold 21px sans-serif';ctx.fillText('$',125,145);}
-    if(shiny) {ctx.strokeStyle='#fff6ff';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(131,10);ctx.lineTo(131,32);ctx.moveTo(120,21);ctx.lineTo(142,21);ctx.stroke();}
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshPhysicalMaterial({
       map: tex,
-      roughness: shiny?.18:gold?.3:.68,
-      metalness: gold?.55:shiny?.35:.01,
+      roughness: shiny?.24:gold?.27:.48,
+      metalness: gold?.88:shiny?.62:.02,
+      clearcoat: shiny?.65:gold?.35:.18,
+      clearcoatRoughness:.2,
+      iridescence: shiny?.65:0,
+      iridescenceIOR:1.35,
+      iridescenceThicknessRange:[180,420],
     });
+    if(gold||shiny) {
+      mat.onBeforeCompile=shader=>{
+        shader.uniforms.uFinishTime=this.finishTime;
+        shader.fragmentShader='uniform float uFinishTime;\n'+shader.fragmentShader;
+        shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+          float foilPhase=vMapUv.x*.9+vMapUv.y*.55+uFinishTime*.11+dot(normalize(vViewPosition),vec3(.6,.3,.0));
+          float ribbon=pow(.5+.5*sin(foilPhase*6.28318),9.0);
+          float reflection=.72+ribbon*.72;
+          diffuseColor.rgb*=reflection;
+          ${shiny ? 'vec3 spectrum=.78+.22*cos(foilPhase*6.28318+vec3(0.,2.1,4.2)); diffuseColor.rgb*=spectrum;' : ''}
+        `);
+      };
+      mat.customProgramCacheKey=()=>`foil-${gold}-${shiny}`;
+    }
     this.materials.set(key, mat);
     return mat;
   }
@@ -188,6 +207,10 @@ class Board {
     return Array.from({ length: 6 }, () =>
       this.material(dieColor(d), pipColor(d), d.n, d.special, d.mult, d.shiny, d.gold, d.converted),
     );
+  }
+  tickFinish(now, reduced=false) {
+    this.finishTime.value=reduced?0:now/1000;
+    this.scene.environmentRotation.y=reduced?0:Math.sin(now/9000)*.22;
   }
   render() {
     this.renderer.render(this.scene, this.camera);

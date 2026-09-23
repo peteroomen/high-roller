@@ -1465,15 +1465,6 @@ dialog { background:#2b2535; }
 .trinket-detail {display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 0}
 .trinket-detail .trinket-die {width:85px;height:85px;margin-bottom:12px}
 .bag-button {padding:8px 12px;background:#40344c;border:1px solid #7a6489;border-radius:8px;font-size:12px;color:#f1deff}
-.cell[data-shiny="true"] {overflow:hidden}
-.cell[data-shiny="true"]:after {content:'';position:absolute;inset:8%;pointer-events:none;border-radius:13%;background:linear-gradient(110deg,transparent 20%,#fff0 35%,#fff9 48%,#fff0 59%,transparent 80%);transform:translateX(-160%);animation:die-shine 3.8s infinite}
-.cell[data-shiny="true"]:before {content:'✧';position:absolute;right:9%;top:7%;font-size:14px;color:#fff;pointer-events:none;text-shadow:0 1px 2px #392943}
-.cell[data-gold="true"] {box-shadow:inset 0 0 0 2px #efd17e99}
-.cell[data-gold="true"]:before {content:'●';position:absolute;right:7%;bottom:6%;color:#ffdc6c;font-size:12px;pointer-events:none;text-shadow:0 1px 2px #432910}
-.cell[data-gold="true"][data-shiny="true"]:before {content:'✧';top:7%;bottom:auto}
-.is-gold .face-0 {box-shadow:inset 0 0 0 2px #f9d57c,0 5px 10px #0005}
-@keyframes die-shine {0%,38%{transform:translateX(-160%)}65%,100%{transform:translateX(160%)}}
-.reduced .cell[data-shiny="true"]:after {animation:none;transform:none;opacity:.3}
 .shop-dialog {max-width:min(620px,96vw);width:620px;max-height:94dvh;overflow:hidden;border-radius:14px}
 .shop-dialog #modal-content {max-height:94dvh;display:flex;flex-direction:column;padding:20px;box-sizing:border-box}
 .shop-heading {flex-shrink:0}.shop-heading h2 {margin:5px 0 8px;font-size:25px}
@@ -1530,3 +1521,27 @@ dialog { background:#2b2535; }
 .converted-glyph { position:absolute;inset:8%;color:var(--pip);display:grid;place-items:center; }
 .converted-glyph svg { width:100%;height:100%; }
 .rarity { font-size:9px;letter-spacing:1px;color:var(--accent);font-weight:700; }
+
+/* Material study: no painted face rims or reward badges. */
+.face { border:0; background-image:linear-gradient(135deg,#ffffff20,transparent 48%,#00000013);box-shadow:inset 1px 2px 2px #fff5,inset -1px -2px 2px #0002; }
+.face-0 {box-shadow:inset 1px 2px 2px #fff5,inset -1px -2px 2px #0002,0 5px 10px #0005}
+.is-gold .face {
+ background-color:#c59a38;
+ background-image:linear-gradient(117deg,#81531a 0%,#b98c2c 17%,#f3d989 32%,#fff0b2 39%,#c39a37 47%,#8a601f 58%,#dfb954 71%,#f6dfa0 81%,#b68a2e 100%);
+ background-size:240% 160%;animation:metal-drift 7s ease-in-out infinite alternate;
+ box-shadow:inset 1px 2px 2px #fff0b380,inset -1px -2px 2px #6c471e66;
+}
+.is-gold .face-0 {box-shadow:inset 1px 2px 2px #fff0b380,inset -1px -2px 2px #6c471e66,0 5px 10px #0005}
+.is-shiny .face {
+ background-image:linear-gradient(117deg,#56508170 0%,#b9eced70 18%,#f7e9ffbb 31%,#ffffeec9 39%,#ce9bcd77 45%,#70689565 57%,#8ed8c080 73%,#eed2f0aa 86%,#7c76a578 100%);
+ background-size:240% 160%;animation:metal-drift 6s ease-in-out infinite alternate;
+ box-shadow:inset 1px 2px 2px #f2e8ff99,inset -1px -2px 2px #35305455;
+}
+.is-shiny.is-gold .face {background-color:#d2ad4e;background-blend-mode:soft-light}
+.is-gold .pip {box-shadow:0 1px 1px #fff8,inset 0 1px 2px #16090099}
+.is-shiny .pip {box-shadow:0 1px 1px #30244880,inset 0 1px 1px #fffd}
+@keyframes metal-drift {from{background-position:8% 15%}to{background-position:92% 85%}}
+.foil-pack {background-size:240% 150%;animation:metal-drift 8s ease-in-out infinite alternate;transition:transform .25s,filter .25s}
+.foil-pack:hover:not(:disabled),.foil-pack:active:not(:disabled) {filter:brightness(1.08);transform:perspective(500px) rotateY(-9deg) rotateX(5deg) translateY(-4px)}
+.reduced .is-gold .face,.reduced .is-shiny .face,.reduced .foil-pack {animation:none;background-position:40% 45%}
+@media(prefers-reduced-motion:reduce){.is-gold .face,.is-shiny .face,.foil-pack{animation:none;background-position:40% 45%}}

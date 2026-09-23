@@ -791,7 +791,9 @@ function idleTick(now) {
   const enabled=!busy && !paused && !document.hidden && !prefs.reduced && state.status==="playing";
   const phase=(now%4400)/650;
   const amount=enabled && phase<1 ? Math.sin(phase*Math.PI*8)*Math.sin(phase*Math.PI) : 0;
-  if(amount || idleActive) board.idle(viewBoard,amount);
+  board.tickFinish?.(now,prefs.reduced||paused);
+  const hasFinish=enabled&&viewBoard.some(d=>d.gold||d.shiny);
+  if(amount || idleActive || hasFinish) board.idle(viewBoard,amount);
   idleActive=Boolean(amount);
   requestAnimationFrame(idleTick);
 }

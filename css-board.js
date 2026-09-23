@@ -60,7 +60,7 @@ class CSSBoard {
         this.meshes.set(d.id, m);
       }
       m.el.classList.toggle("is-shiny",Boolean(d.shiny));m.el.classList.toggle("is-gold",Boolean(d.gold));
-      const key = `${d.n}-${d.special}-${d.mult}-${d.converted}`;
+      const key = `${d.n}-${d.special}-${d.mult}-${d.converted}-${d.gold}-${d.shiny}`;
       if (m.key !== key) {
         m.cube.innerHTML = this.faces(d);
         m.key = key;
