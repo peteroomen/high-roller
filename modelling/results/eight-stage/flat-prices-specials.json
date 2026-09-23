@@ -1,0 +1,1863 @@
+{
+  "id": "flat-prices",
+  "policy": "specials",
+  "config": {
+    "moves": 10,
+    "targets": [
+      180,
+      240,
+      320,
+      450,
+      600,
+      800,
+      950,
+      1200,
+      1500,
+      1800,
+      2200,
+      2650,
+      3150,
+      3750,
+      4400,
+      5150,
+      6000,
+      6900,
+      7900,
+      9000,
+      10200,
+      11500,
+      12900,
+      14400
+    ],
+    "stageLength": 3,
+    "rates": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "lowBonus": true,
+    "draft": true,
+    "rules": {
+      "singleRerollsPerRound": 3,
+      "packCost": 8,
+      "multiPackCost": 8,
+      "trinketCost": 10,
+      "roundReward": 3,
+      "goldRate": 3,
+      "levelBoost": [
+        1,
+        6,
+        16,
+        32
+      ],
+      "trinketPips": [
+        8,
+        48,
+        120,
+        240
+      ],
+      "trinketMult": [
+        1,
+        6,
+        18,
+        36
+      ],
+      "charmValues": {
+        "quad": 2,
+        "ones": 1,
+        "cascade": 2,
+        "rainbow": 20
+      },
+      "charmPrices": {
+        "quad": 24,
+        "convert": 16,
+        "ones": 12,
+        "cascade": 8,
+        "rainbow": 8,
+        "bigbomb": 14,
+        "widecolumn": 12,
+        "widerow": 12
+      },
+      "specialWeights": {
+        "column": 4,
+        "row": 4,
+        "twenty": 0,
+        "bomb": 2,
+        "number": 1,
+        "wild": 2,
+        "shiny": 1,
+        "color": 1
+      },
+      "packStageIncrease": 0
+    }
+  },
+  "seedStart": 100001,
+  "runs": 60,
+  "identity": {
+    "hashes": {
+      "engine.mjs": "1dc3e58e08f0f492a3ace50352b9c21faf7fd43181bc0c7ba18281b37336a6b1",
+      "presentation.mjs": "48767f97d87a3299c3ff3ac4a283027f69094daecc079100a5c4a65da5056dcb",
+      "modelling/runner.mjs": "44267368278859687e7cef6a6bb4cd3aa7b0c00044fa274fc2bfacb143fd2e3e",
+      "modelling/policies.mjs": "1996adce79e3d8da2ccac15354c7e9bc23a9abb039a78ec3cd82fa19afc9a7db",
+      "modelling/research-policies.mjs": "98b69c84934fbd0949900b48f23e587c6b885bde8c7594e2f835b842253afce6",
+      "modelling/eight-stage.mjs": "b6f9cc51f455b659181c202105bd80952171ba420db4a8ffba0fe666d5c71584",
+      "modelling/power-study.mjs": "f4265d587573ff0da1066ba35528b1ca570e44c798ad9508eac810aeab323ec9"
+    },
+    "commit": "eb1f28ed547d7cb50bcaec76d4a01a2d2f06335f",
+    "node": "v24.19.0"
+  },
+  "aggregate": {
+    "runs": 60,
+    "wins": 48,
+    "censored": 0,
+    "winRate": 0.8,
+    "winRate95CI": [
+      0.6821819419437246,
+      0.8817149467710234
+    ],
+    "rounds": [
+      {
+        "round": 1,
+        "reached": 60,
+        "censored": 0,
+        "cleared": 60,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 1,
+        "score": {
+          "n": 60,
+          "mean": 323.7,
+          "p10": 198,
+          "p50": 268,
+          "p90": 461,
+          "p99": 897,
+          "max": 1068
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 60,
+          "mean": 2.15,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 5,
+          "max": 6
+        },
+        "movesLeftOnClear": {
+          "n": 60,
+          "mean": 7.85,
+          "p10": 6,
+          "p50": 8,
+          "p90": 9,
+          "p99": 10,
+          "max": 10
+        },
+        "coinsEarned": {
+          "n": 60,
+          "mean": 0.38333333333333336,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 3
+        },
+        "coinsSpent": {
+          "n": 60,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 2,
+        "reached": 60,
+        "censored": 0,
+        "cleared": 60,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 1,
+        "score": {
+          "n": 60,
+          "mean": 463.8333333333333,
+          "p10": 254,
+          "p50": 315,
+          "p90": 842,
+          "p99": 1487,
+          "max": 1520
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 60,
+          "mean": 2.4833333333333334,
+          "p10": 1,
+          "p50": 2,
+          "p90": 5,
+          "p99": 7,
+          "max": 7
+        },
+        "movesLeftOnClear": {
+          "n": 60,
+          "mean": 7.516666666666667,
+          "p10": 5,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 10
+        },
+        "coinsEarned": {
+          "n": 60,
+          "mean": 0.43333333333333335,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 60,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 3,
+        "reached": 60,
+        "censored": 0,
+        "cleared": 60,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 1,
+        "score": {
+          "n": 60,
+          "mean": 613.5666666666667,
+          "p10": 330,
+          "p50": 412,
+          "p90": 1052,
+          "p99": 2467,
+          "max": 3724
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 60,
+          "mean": 2.5166666666666666,
+          "p10": 1,
+          "p50": 2,
+          "p90": 5,
+          "p99": 6,
+          "max": 8
+        },
+        "movesLeftOnClear": {
+          "n": 60,
+          "mean": 7.483333333333333,
+          "p10": 5,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 10
+        },
+        "coinsEarned": {
+          "n": 60,
+          "mean": 0.45,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 60,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 4,
+        "reached": 60,
+        "censored": 0,
+        "cleared": 60,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 1,
+        "score": {
+          "n": 60,
+          "mean": 786.7,
+          "p10": 470,
+          "p50": 617,
+          "p90": 1084,
+          "p99": 3065,
+          "max": 3366
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 60,
+          "mean": 2.283333333333333,
+          "p10": 1,
+          "p50": 2,
+          "p90": 5,
+          "p99": 8,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 60,
+          "mean": 7.716666666666667,
+          "p10": 5,
+          "p50": 8,
+          "p90": 9,
+          "p99": 10,
+          "max": 10
+        },
+        "coinsEarned": {
+          "n": 60,
+          "mean": 0.3,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 3
+        },
+        "coinsSpent": {
+          "n": 60,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 5,
+        "reached": 60,
+        "censored": 0,
+        "cleared": 60,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 1,
+        "score": {
+          "n": 60,
+          "mean": 1344.4333333333334,
+          "p10": 639,
+          "p50": 934,
+          "p90": 2507,
+          "p99": 4224,
+          "max": 6314
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 60,
+          "mean": 2.6,
+          "p10": 1,
+          "p50": 2,
+          "p90": 6,
+          "p99": 9,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 60,
+          "mean": 7.4,
+          "p10": 3,
+          "p50": 8,
+          "p90": 9,
+          "p99": 10,
+          "max": 10
+        },
+        "coinsEarned": {
+          "n": 60,
+          "mean": 0.36666666666666664,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 60,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 6,
+        "reached": 60,
+        "censored": 0,
+        "cleared": 58,
+        "conditionalClearRate": 0.9666666666666667,
+        "clearRateAllRuns": 0.9666666666666667,
+        "score": {
+          "n": 60,
+          "mean": 1804.25,
+          "p10": 812,
+          "p50": 1228,
+          "p90": 2834,
+          "p99": 8250,
+          "max": 9420
+        },
+        "deficit": {
+          "n": 2,
+          "mean": 245.5,
+          "p10": 207,
+          "p50": 207,
+          "p90": 207,
+          "p99": 207,
+          "max": 284
+        },
+        "movesUsed": {
+          "n": 60,
+          "mean": 3.3833333333333333,
+          "p10": 1,
+          "p50": 2,
+          "p90": 7,
+          "p99": 10,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 58,
+          "mean": 6.844827586206897,
+          "p10": 3,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 60,
+          "mean": 0.5666666666666667,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 3
+        },
+        "coinsSpent": {
+          "n": 60,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 7,
+        "reached": 58,
+        "censored": 0,
+        "cleared": 56,
+        "conditionalClearRate": 0.9655172413793104,
+        "clearRateAllRuns": 0.9333333333333333,
+        "score": {
+          "n": 58,
+          "mean": 1999.844827586207,
+          "p10": 975,
+          "p50": 1391,
+          "p90": 3567,
+          "p99": 7050,
+          "max": 8342
+        },
+        "deficit": {
+          "n": 2,
+          "mean": 94,
+          "p10": 64,
+          "p50": 64,
+          "p90": 64,
+          "p99": 64,
+          "max": 124
+        },
+        "movesUsed": {
+          "n": 58,
+          "mean": 2.603448275862069,
+          "p10": 1,
+          "p50": 1,
+          "p90": 5,
+          "p99": 10,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 56,
+          "mean": 7.660714285714286,
+          "p10": 5,
+          "p50": 9,
+          "p90": 9,
+          "p99": 9,
+          "max": 10
+        },
+        "coinsEarned": {
+          "n": 58,
+          "mean": 0.3793103448275862,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 4
+        },
+        "coinsSpent": {
+          "n": 58,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 8,
+        "reached": 56,
+        "censored": 0,
+        "cleared": 54,
+        "conditionalClearRate": 0.9642857142857143,
+        "clearRateAllRuns": 0.9,
+        "score": {
+          "n": 56,
+          "mean": 2611.75,
+          "p10": 1281,
+          "p50": 1972,
+          "p90": 4221,
+          "p99": 8686,
+          "max": 8928
+        },
+        "deficit": {
+          "n": 2,
+          "mean": 217,
+          "p10": 61,
+          "p50": 61,
+          "p90": 61,
+          "p99": 61,
+          "max": 373
+        },
+        "movesUsed": {
+          "n": 56,
+          "mean": 2.625,
+          "p10": 1,
+          "p50": 1,
+          "p90": 6,
+          "p99": 10,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 54,
+          "mean": 7.648148148148148,
+          "p10": 5,
+          "p50": 9,
+          "p90": 9,
+          "p99": 10,
+          "max": 10
+        },
+        "coinsEarned": {
+          "n": 56,
+          "mean": 0.5714285714285714,
+          "p10": 0,
+          "p50": 0,
+          "p90": 2,
+          "p99": 4,
+          "max": 4
+        },
+        "coinsSpent": {
+          "n": 56,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 9,
+        "reached": 54,
+        "censored": 0,
+        "cleared": 54,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.9,
+        "score": {
+          "n": 54,
+          "mean": 2651.8888888888887,
+          "p10": 1675,
+          "p50": 2328,
+          "p90": 4142,
+          "p99": 4828,
+          "max": 6533
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 54,
+          "mean": 2.1481481481481484,
+          "p10": 1,
+          "p50": 1,
+          "p90": 4,
+          "p99": 7,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 54,
+          "mean": 7.851851851851852,
+          "p10": 5,
+          "p50": 9,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 54,
+          "mean": 0.3333333333333333,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 54,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 10,
+        "reached": 54,
+        "censored": 0,
+        "cleared": 50,
+        "conditionalClearRate": 0.9259259259259259,
+        "clearRateAllRuns": 0.8333333333333334,
+        "score": {
+          "n": 54,
+          "mean": 3297.1481481481483,
+          "p10": 1857,
+          "p50": 2835,
+          "p90": 5360,
+          "p99": 7134,
+          "max": 7668
+        },
+        "deficit": {
+          "n": 4,
+          "mean": 574.25,
+          "p10": 222,
+          "p50": 320,
+          "p90": 874,
+          "p99": 874,
+          "max": 881
+        },
+        "movesUsed": {
+          "n": 54,
+          "mean": 2.685185185185185,
+          "p10": 1,
+          "p50": 1,
+          "p90": 7,
+          "p99": 10,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 50,
+          "mean": 7.9,
+          "p10": 5,
+          "p50": 9,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 54,
+          "mean": 0.37037037037037035,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 3,
+          "max": 4
+        },
+        "coinsSpent": {
+          "n": 54,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 11,
+        "reached": 50,
+        "censored": 0,
+        "cleared": 50,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8333333333333334,
+        "score": {
+          "n": 50,
+          "mean": 4437.96,
+          "p10": 2304,
+          "p50": 3453,
+          "p90": 7651,
+          "p99": 10412,
+          "max": 11536
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 50,
+          "mean": 2.04,
+          "p10": 1,
+          "p50": 1,
+          "p90": 4,
+          "p99": 7,
+          "max": 9
+        },
+        "movesLeftOnClear": {
+          "n": 50,
+          "mean": 7.96,
+          "p10": 5,
+          "p50": 9,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 50,
+          "mean": 0.32,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 50,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 12,
+        "reached": 50,
+        "censored": 0,
+        "cleared": 49,
+        "conditionalClearRate": 0.98,
+        "clearRateAllRuns": 0.8166666666666667,
+        "score": {
+          "n": 50,
+          "mean": 4857.02,
+          "p10": 2967,
+          "p50": 4323,
+          "p90": 8121,
+          "p99": 9750,
+          "max": 11718
+        },
+        "deficit": {
+          "n": 1,
+          "mean": 403,
+          "p10": 403,
+          "p50": 403,
+          "p90": 403,
+          "p99": 403,
+          "max": 403
+        },
+        "movesUsed": {
+          "n": 50,
+          "mean": 1.76,
+          "p10": 1,
+          "p50": 1,
+          "p90": 3,
+          "p99": 4,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 49,
+          "mean": 8.408163265306122,
+          "p10": 7,
+          "p50": 9,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 50,
+          "mean": 0.42,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 50,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 13,
+        "reached": 49,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 0.9795918367346939,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 49,
+          "mean": 5145.530612244898,
+          "p10": 3408,
+          "p50": 4680,
+          "p90": 7830,
+          "p99": 8820,
+          "max": 9960
+        },
+        "deficit": {
+          "n": 1,
+          "mean": 615,
+          "p10": 615,
+          "p50": 615,
+          "p90": 615,
+          "p99": 615,
+          "max": 615
+        },
+        "movesUsed": {
+          "n": 49,
+          "mean": 2.36734693877551,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 8,
+          "max": 10
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.791666666666667,
+          "p10": 6,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 49,
+          "mean": 0.24489795918367346,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 49,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 14,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 6582.645833333333,
+          "p10": 3976,
+          "p50": 5472,
+          "p90": 8656,
+          "p99": 17248,
+          "max": 22748
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 1.9791666666666667,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 5,
+          "max": 7
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 8.020833333333334,
+          "p10": 6,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.375,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 3,
+          "max": 3
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 15,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 6668,
+          "p10": 4960,
+          "p50": 6245,
+          "p90": 8820,
+          "p99": 10344,
+          "max": 14508
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.125,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 6,
+          "max": 6
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.875,
+          "p10": 5,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.25,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 1,
+          "max": 3
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 16,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 8201.104166666666,
+          "p10": 5536,
+          "p50": 7752,
+          "p90": 11900,
+          "p99": 12240,
+          "max": 16192
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.2083333333333335,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 6,
+          "max": 7
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.791666666666667,
+          "p10": 5,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.2916666666666667,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 17,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 9409.166666666666,
+          "p10": 6572,
+          "p50": 8400,
+          "p90": 13138,
+          "p99": 16720,
+          "max": 17630
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.6458333333333335,
+          "p10": 1,
+          "p50": 2,
+          "p90": 5,
+          "p99": 7,
+          "max": 8
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.354166666666667,
+          "p10": 5,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.14583333333333334,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 1,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 18,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 10651.979166666666,
+          "p10": 7137,
+          "p50": 10086,
+          "p90": 13986,
+          "p99": 15988,
+          "max": 16388
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.4166666666666665,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 6,
+          "max": 7
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.583333333333333,
+          "p10": 6,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.1875,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 1,
+          "max": 1
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 19,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 12225.145833333334,
+          "p10": 8375,
+          "p50": 11878,
+          "p90": 16213,
+          "p99": 19740,
+          "max": 21890
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.375,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 4,
+          "max": 7
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.625,
+          "p10": 6,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.2916666666666667,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 3
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 20,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 12534.979166666666,
+          "p10": 9598,
+          "p50": 11786,
+          "p90": 15330,
+          "p99": 22660,
+          "max": 23886
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.5,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 5,
+          "max": 8
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.5,
+          "p10": 6,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.2708333333333333,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 21,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 13064.666666666666,
+          "p10": 10492,
+          "p50": 12005,
+          "p90": 16676,
+          "p99": 19220,
+          "max": 19356
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.4166666666666665,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 4,
+          "max": 4
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.583333333333333,
+          "p10": 6,
+          "p50": 8,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.3541666666666667,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 2,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 22,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 14773.75,
+          "p10": 11692,
+          "p50": 13278,
+          "p90": 19415,
+          "p99": 23680,
+          "max": 26708
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.5416666666666665,
+          "p10": 1,
+          "p50": 2,
+          "p90": 4,
+          "p99": 5,
+          "max": 5
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.458333333333333,
+          "p10": 6,
+          "p50": 7,
+          "p90": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.16666666666666666,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 1,
+          "max": 1
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 23,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 17414.0625,
+          "p10": 13798,
+          "p50": 16874,
+          "p90": 21584,
+          "p99": 23932,
+          "max": 31992
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.875,
+          "p10": 2,
+          "p50": 3,
+          "p90": 4,
+          "p99": 5,
+          "max": 5
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.125,
+          "p10": 6,
+          "p50": 7,
+          "p90": 8,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 0.16666666666666666,
+          "p10": 0,
+          "p50": 0,
+          "p90": 1,
+          "p99": 1,
+          "max": 2
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      },
+      {
+        "round": 24,
+        "reached": 48,
+        "censored": 0,
+        "cleared": 48,
+        "conditionalClearRate": 1,
+        "clearRateAllRuns": 0.8,
+        "score": {
+          "n": 48,
+          "mean": 19361.541666666668,
+          "p10": 14940,
+          "p50": 17950,
+          "p90": 26002,
+          "p99": 27368,
+          "max": 31694
+        },
+        "deficit": {
+          "n": 0,
+          "mean": null,
+          "p10": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "movesUsed": {
+          "n": 48,
+          "mean": 2.8125,
+          "p10": 2,
+          "p50": 3,
+          "p90": 4,
+          "p99": 5,
+          "max": 6
+        },
+        "movesLeftOnClear": {
+          "n": 48,
+          "mean": 7.1875,
+          "p10": 6,
+          "p50": 7,
+          "p90": 8,
+          "p99": 9,
+          "max": 9
+        },
+        "coinsEarned": {
+          "n": 48,
+          "mean": 10.458333333333334,
+          "p10": 9,
+          "p50": 10,
+          "p90": 12,
+          "p99": 12,
+          "max": 12
+        },
+        "coinsSpent": {
+          "n": 48,
+          "mean": 0,
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "p99": 0,
+          "max": 0
+        }
+      }
+    ],
+    "score": {
+      "n": 60,
+      "mean": 131719.06666666668,
+      "p10": 9838,
+      "p50": 155592,
+      "p90": 185477,
+      "p99": 195775,
+      "max": 216910
+    },
+    "actions": {
+      "n": 60,
+      "mean": 148.95,
+      "p10": 70,
+      "p50": 159,
+      "p90": 186,
+      "p99": 195,
+      "max": 195
+    },
+    "goldSpawns": 3074,
+    "goldMatches": 424,
+    "shinyMatches": 5,
+    "wildClears": 0,
+    "trinketPurchases": 434,
+    "trinketSales": 195,
+    "trinketSpending": 5078,
+    "saleIncome": 947,
+    "multiPicks": {
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0
+    },
+    "trinketTriggers": {
+      "pips-3": 830,
+      "mult-3": 319,
+      "pips-4": 25,
+      "mult-4": 36,
+      "pips-5": 5,
+      "mult-5": 0,
+      "pips-6": 0,
+      "mult-6": 0,
+      "convert": 0,
+      "cascade": 1025,
+      "ones": 263,
+      "quad": 692,
+      "rainbow": 762,
+      "bigbomb": 2467,
+      "widecolumn": 1730,
+      "widerow": 1931
+    },
+    "trinketBonuses": {
+      "pips-3": 6640,
+      "mult-3": 319,
+      "pips-4": 1200,
+      "mult-4": 216,
+      "pips-5": 600,
+      "mult-5": 0,
+      "pips-6": 0,
+      "mult-6": 0,
+      "convert": 0,
+      "cascade": 2050,
+      "ones": 855,
+      "quad": 1384,
+      "rainbow": 15240,
+      "bigbomb": 0,
+      "widecolumn": 0,
+      "widerow": 0
+    },
+    "trinketFlights": 3957,
+    "pipFlights": 64290,
+    "multFlights": 14820,
+    "scoreAnimationSeconds": {
+      "n": 60,
+      "mean": 629.6959448026707,
+      "p10": 191.9336569055976,
+      "p50": 652.3856515625492,
+      "p90": 904.4812617153104,
+      "p99": 1138.559303330042,
+      "max": 1141.5138154824288
+    },
+    "wavesPerAction": {
+      "n": 3984,
+      "mean": 1.3074799196787148,
+      "p10": 0,
+      "p50": 1,
+      "p90": 2,
+      "p99": 4,
+      "max": 7
+    },
+    "scorePerAction": {
+      "n": 3984,
+      "mean": 1983.7208835341366,
+      "p10": 0,
+      "p50": 330,
+      "p90": 6256,
+      "p99": 13840,
+      "max": 23544
+    },
+    "packPurchases": 933,
+    "packSpending": 7464,
+    "roundRewards": 13250,
+    "shopVisits": 1199,
+    "tokenPicks": {
+      "column": 263,
+      "color": 1,
+      "number": 97,
+      "bomb": 358,
+      "twenty": 0,
+      "row": 273,
+      "wild": 0,
+      "shiny": 1
+    },
+    "swaps": 3081,
+    "rerolls": 0,
+    "runsUsingReroll": 0,
+    "coinsEarned": 14621,
+    "coinsSpent": 12542,
+    "coinsEnding": {
+      "n": 60,
+      "mean": 34.65,
+      "p10": 5,
+      "p50": 37,
+      "p90": 61,
+      "p99": 69,
+      "max": 71
+    },
+    "rerollsWithNoMatch": 0,
+    "rerollPoints": 0,
+    "shuffles": 8,
+    "cappedResolutions": 0,
+    "points": {
+      "matchBase": 759837,
+      "blastBase": 2268988,
+      "cascade": 328707,
+      "low": 105576,
+      "upgrades": 0,
+      "trinketMult": 18874,
+      "trinketPips": 109040,
+      "globalAdd": 2266896,
+      "multipliers": 2045226
+    },
+    "specialSwapActions": 2127,
+    "specialScore": {
+      "column": 578222,
+      "color": 1806,
+      "number": 223664,
+      "bomb": 839034,
+      "twenty": 0,
+      "row": 634822,
+      "wild": 0,
+      "shiny": 0
+    },
+    "specialSpawns": {
+      "column": 2722,
+      "color": 7,
+      "number": 1320,
+      "bomb": 3963,
+      "twenty": 0,
+      "row": 3037,
+      "wild": 0,
+      "shiny": 14
+    },
+    "specialTriggers": {
+      "column": 1851,
+      "color": 4,
+      "number": 841,
+      "bomb": 2737,
+      "twenty": 0,
+      "row": 2093,
+      "wild": 0,
+      "shiny": 0
+    },
+    "specialChainTriggers": {
+      "column": 1336,
+      "color": 4,
+      "number": 647,
+      "bomb": 1847,
+      "twenty": 0,
+      "row": 1472,
+      "wild": 0,
+      "shiny": 0
+    },
+    "firstWaveGroupSizes": {
+      "3": 1612,
+      "4": 196,
+      "5": 59,
+      "6": 8,
+      "7": 2
+    },
+    "cascadeGroupSizes": {
+      "3": 1998,
+      "4": 202,
+      "5": 80,
+      "6": 25,
+      "7": 9,
+      "8": 1
+    },
+    "singleRerolls": 903,
+    "boughtItems": {
+      "rainbow": 53,
+      "cascade": 57,
+      "mult-3": 30,
+      "widerow": 43,
+      "ones": 39,
+      "bigbomb": 50,
+      "widecolumn": 45,
+      "quad": 36,
+      "mult-4": 14,
+      "pips-3": 42,
+      "pips-6": 4,
+      "pips-4": 16,
+      "mult-6": 1,
+      "mult-5": 1,
+      "pips-5": 3
+    },
+    "matchedGroupSizes": {
+      "3": 3610,
+      "4": 398,
+      "5": 139,
+      "6": 33,
+      "7": 11,
+      "8": 1
+    },
+    "depthHistogram": {
+      "1": 3329,
+      "2": 1441,
+      "3": 341,
+      "4": 80,
+      "5": 15,
+      "6": 2,
+      "7": 1
+    },
+    "naturalGroupsByPip": [
+      637,
+      685,
+      665,
+      703,
+      745,
+      757
+    ],
+    "naturalScoreByPip": [
+      226697,
+      246182,
+      201170,
+      196003,
+      201318,
+      214584
+    ],
+    "runsReachingAffordability": 60
+  }
+}

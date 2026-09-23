@@ -50,3 +50,6 @@ Build 0.6.0 / engine 7 exports original configuration and accepted actions. Old 
 [Balance decisions](docs/playtest-06-balance.md), [verification](docs/playtest-06-verification.md), [whole-game modelling](modelling/README.md).
 
 Future experiments: special-pair combo patterns could trade away trinket design space; deliberate reroll actions could help arrange four/five matches. Neither expansion is included here. The existing paid 2×2 reroll remains.
+
+
+An opt-in **eight-stage / 24-encounter balance candidate** is documented in [docs/eight-stage-balance.md](docs/eight-stage-balance.md), with reproducible configuration in [modelling/configs/eight-stage-v1.json](modelling/configs/eight-stage-v1.json). It is modelled separately from the live Playtest 07 defaults.

@@ -10,6 +10,8 @@ const DEFAULTS = {
 };
 const RULES = Object.freeze({
   rerollCost: 3,
+  // Research opt-in; zero preserves the live game.
+  singleRerollsPerRound: 0,
   tokenBoost: 1,
   specialPips: 10,
   goldRate: 5,
@@ -19,6 +21,7 @@ const RULES = Object.freeze({
   charmPrices: {convert:6,ones:7,cascade:6,quad:20,rainbow:7,bigbomb:8,widecolumn:8,widerow:8},
   charmWeights: {convert:3,ones:3,cascade:3,quad:.7,rainbow:2,bigbomb:2,widecolumn:2,widerow:2},
   packCost: 5,
+  packStageIncrease: 0,
   roundReward: 5,
   multiPackCost: 4,
   levelBoost: [2, 4, 6, 8],
@@ -448,6 +451,12 @@ function act(original, action) {
     if (!matches(s.board).length && !roots.length) return null;
     s.moves--;
 
+  } else if (action.type === "reroll_single") {
+    if (!Number.isInteger(action.index) || action.index < 0 || action.index > 35 ||
+        s.board[action.index].special || (s.singleRerollsUsed ?? 0) >= rules.singleRerollsPerRound) return null;
+    s.singleRerollsUsed = (s.singleRerollsUsed ?? 0) + 1;
+    const face = rollFace(s);
+    s.board[action.index] = {...s.board[action.index], ...face, color: face.n - 1};
   } else if (action.type === "reroll") {
     if (
       s.coins < rules.rerollCost ||
@@ -572,9 +581,9 @@ function tokenOffers(s,count,pool=TYPES) {
 }
 const applyBonus=(mult,b)=>b.op==='multiply'?Math.round(mult*b.value*100)/100:mult+b.value;
 
-function packCost(pack,config) {const r=rulesFor(config);return pack.kind==='multi'?r.multiPackCost:r.packCost;}
+function packCost(pack,config,round=0) {const r=rulesFor(config);return (pack.kind==='multi'?r.multiPackCost:r.packCost)+Math.floor(round/(config.stageLength??3))*r.packStageIncrease;}
 function canBuyPack(s,pack) {
-  return !s.shop?.bought && s.coins>=packCost(pack,s.config) && (pack.kind==='multi'?!s.config.disableUpgrades:TYPES.some(t=>canTakeToken(s,t)));
+  return !s.shop?.bought && s.coins>=packCost(pack,s.config,s.round) && (pack.kind==='multi'?!s.config.disableUpgrades:TYPES.some(t=>canTakeToken(s,t)));
 }
 function trinketOffers(s) {
   if(s.config.disableTrinkets)return [];
@@ -611,7 +620,7 @@ function progressAction(original,action) {
     // Numbered packs reveal all four tiers and one extra weighted toward common matches.
     const tiers=[...MATCH_TIERS];const offers=pack.kind==='multi' ? Array.from({length:3},()=>`multi-${tiers.splice(Math.floor(random(s)*tiers.length),1)[0]}`) : tokenOffers(s,3,pack.pool);
     if(!offers.length) return null;
-    coinsSpent=packCost(pack,s.config); s.coins-=coinsSpent; s.shop.bought=true;
+    coinsSpent=packCost(pack,s.config,s.round); s.coins-=coinsSpent; s.shop.bought=true;
     s.status="draft";
     s.draft={kind:"pack",name:pack.name,offers,picks:[],limit:1};
   } else if(action.type==='buy_trinket' && s.status==='shop') {
@@ -625,7 +634,7 @@ function progressAction(original,action) {
     s.config.trinkets=s.config.trinkets.filter(id=>id!==trinketId);
     coinsEarned=Math.floor(trinketCost(TRINKETS.find(t=>t.id===trinketId),s.config)/2);s.coins+=coinsEarned;
   } else if(action.type==="next_round" && s.status==="shop") {
-    s.round++; s.score=0; s.moves=s.config.moves; s.status="playing";
+    s.round++; s.score=0; s.moves=s.config.moves; s.singleRerollsUsed=0; s.status="playing";
     s.shop=null; s.board=freshBoard(s);
   } else return null;
   const summary={action:clone(action),ruleVersion:7,turn:s.turn,round:s.round+1,
@@ -643,14 +652,17 @@ function preview(b, a, c, config) {
   const g = matches(next);
   const roots=swapRoots(next,a,c);
   if(!g.length&&!roots.length)return null;
-  const f=wave(next,g,0,config,roots);let mult=f.mult;
+  return previewBoard(next,config,roots);
+}
+function previewBoard(next,config,roots=[]) {
+  const f=wave(next,matches(next),0,config,roots);let mult=f.mult;
   if(f.numbers.length===6&&has(config,'rainbow'))mult+=rulesFor(config).charmValues.rainbow;
   for(const b of f.bonuses)mult=applyBonus(mult,b);
   if(has(config,'quad'))mult=applyBonus(mult,{op:'multiply',value:rulesFor(config).charmValues.quad});
   f.score=Math.floor(f.pips*mult);return f;
 }
 export {
-  pipValue, activeSpecial, trinketCost, trinketDescription, weightedPick, applyBonus,
+  previewBoard, pipValue, activeSpecial, trinketCost, trinketDescription, weightedPick, applyBonus,
   PACKS, canTakeToken, canBuyPack, packCost,
   MATCH_TIERS, TRINKETS, tierFor, tierLabel, trinketValue, matchMult, stageInfo,
   legalActions, previewAction, mostCommonNumber,

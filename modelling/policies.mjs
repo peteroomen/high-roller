@@ -1,3 +1,4 @@
+import { researchChoose, RESEARCH_POLICIES } from "./research-policies.mjs";
 import {
   act,
   PACKS, canTakeToken, canBuyPack, TRINKETS, trinketValue, trinketCost, TYPES,
@@ -7,7 +8,7 @@ import {
   rulesFor,
   random,
 } from "../engine.mjs";
-export const POLICY_NAMES = ["random", "greedy", "spender", "rollout", "builder", "specialist"];
+export const POLICY_NAMES = ["random", "greedy", "spender", "rollout", "builder", "specialist", ...RESEARCH_POLICIES];
 // The policy receives only information visible to a player. Never pass the
 // game's RNG, run seed, future boards or outcome traces to a decision function.
 export function observe(state) {
@@ -19,6 +20,7 @@ export function observe(state) {
     score: state.score,
     coins: state.coins,
     moves: state.moves,
+    singleRerollsUsed:state.singleRerollsUsed??0,
   };
 }
 function visibleSwaps(view, cache) {
@@ -42,6 +44,7 @@ export function makePolicy(
     name,
     choose(view) {
       decisions++;
+      if(RESEARCH_POLICIES.includes(name)) return researchChoose(name,view,privateRandom);
       if(view.status === "draft") {
         const candidates=view.draft.offers.flatMap((t,index)=>!view.draft.picks.includes(index)&&canTakeToken(view,t)?[{type:"choose_token",index,token:t}]:[]);
         const priorities={"multi-3":12,"multi-4":8,"multi-5":5,"multi-6":3,number:6,bomb:5,row:4,column:4,twenty:3,wild:7,shiny:8,color:2+view.config.rates.reduce((a,b)=>a+b,0)/20};

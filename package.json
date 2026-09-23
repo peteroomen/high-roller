@@ -11,7 +11,8 @@
     "simulate": "node modelling/cli.mjs",
     "simulate:legacy": "node scripts/simulate.mjs",
     "simulate:sweep": "node modelling/cli.mjs --scenarios all --policies greedy,spender --runs 200 --samples 4 --out modelling/results/current-sensitivity",
-    "simulate:smoke": "node modelling/cli.mjs --runs 10 --policies greedy,spender --samples 2 --out modelling/results/smoke"
+    "simulate:smoke": "node modelling/cli.mjs --runs 10 --policies greedy,spender --samples 2 --out modelling/results/smoke",
+    "simulate:balance": "node modelling/eight-stage.mjs heldout-v1 150 100001 balanced,cascade,large-supported,large,large6,specials modelling/configs/eight-stage-v1.json"
   },
   "keywords": [],
   "author": "",

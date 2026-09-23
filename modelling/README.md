@@ -29,7 +29,7 @@ Outputs: summary JSON, Markdown report, per-run CSV/JSONL and example win/loss t
 | Rerolls/dead boards | `act`, `reshuffle` | All 25 areas, budget, setup/zero-match rerolls, actual free shuffles |
 | Tokens/packs | `buy_pack`, `choose_token` | Three distinct offers, one pick, weighted rarity, uncapped 1% rates and normalization beyond 100 |
 | Shop/inventory | `buy_trinket`, `sell_trinket` | Variable prices, four slots, duplicates, sold stock, purchases/sales/affordability |
-| Nine rounds | `act`, `visit_shop`, `next_round` | Reach/clear rates, failures/deficits, overshoot, moves, stage and round economy, final payout |
+| Configured progression (9 live / 24 research) | `act`, `visit_shop`, `next_round` | Reach/clear rates, failures/deficits, overshoot, moves, stage and round economy, final payout |
 | Save and presentation | `restoreGame`, `scoringPlan`, `pacing` | Coin migration, accepted-action replay, fingerprints, per-die and per-group flights, exact animation totals |
 
 `faceConversions` counts generated/rerolled sixes converted to ones, including rejected starting-face candidates and the preliminary face draw of a symbol die. It measures conversion operations, not visible converted dice. Visible converted dice retain a `converted` flag for red-overwrite artwork, without changing RNG consumption or scoring. Special `Blast activations` exclude naturally matched Wilds and Shiny finishes, which have dedicated metrics. Initial-board rejection means observed starting frequencies differ from raw refill probabilities.
@@ -51,7 +51,7 @@ Heuristics prefer common match tiers, Wild/Shiny/Number/Bomb, Loaded Die and the
 
 Frame scores are increments in `floor(cumulative pips × running Mult)`. Groups and bonuses apply in the same order as presentation. Score attribution first assigns `trinket bonus pips × raw additive Mult` to pip trinkets; other additive sources use dice pips. Remaining points are multiplicative lift, including rounding. This partition conserves score but is not causal contribution. Group ledger entries alone no longer sum to the final score when global/multiplicative bonuses exist; the ledger includes those bonuses separately.
 
-Gold income, all round payouts (including victory), sales, rerolls and purchases conserve coins. Every simulated run asserts both identities. The runner limits 400 accepted actions and the engine 80 waves. Censored runs remain in the denominator, are not wins, and must be investigated. Wilson intervals quantify sampling uncertainty under fixed bots; paired comparisons are screening evidence, with multiple-comparison and heuristic bias.
+Gold income, all round payouts (including victory), sales, rerolls and purchases conserve coins. Every simulated run asserts both identities. The runner limits max(400, 80 × encounter count) accepted actions and the engine 80 waves. Censored runs remain in the denominator, are not wins, and must be investigated. Wilson intervals quantify sampling uncertainty under fixed bots; paired comparisons are screening evidence, with multiple-comparison and heuristic bias.
 
 Nominal scoring time counts shared animation events. It excludes human decisions, swap/fall animations, pauses and device frame time, so it is not predicted human run length. Simulation cannot establish mobile readability or GPU rendering quality.
 
@@ -65,3 +65,24 @@ Final engine: 160 runs across four policies on seeds 7001–7040, 24 planning ru
 - [Design decisions and caveats](../docs/playtest-06-balance.md)
 
 Earlier pilot and per-type exposure summaries preserve their intermediate source hashes and CSV, without replay examples. The final reports were regenerated after adding cosmetic conversion provenance. Free starting-item/build scenarios measure stress cases, not natural shop availability. Rarity and prices remain provisional; special-only late-game weakness and multiplicative builds deserve human testing. Older Playtest 04/05 reports remain historical evidence, not current defaults.
+
+
+## Eight-stage research baseline
+
+The opt-in candidate is [configs/eight-stage-v1.json](configs/eight-stage-v1.json). Live `DEFAULTS` remain Playtest 07. See [the balance report](../docs/eight-stage-balance.md) for held-out results and limitations.
+
+```sh
+node modelling/eight-stage.mjs heldout-v1 150 100001 balanced,cascade,large-supported,large,large6,specials modelling/configs/eight-stage-v1.json
+node modelling/power-study.mjs 200
+node modelling/synergy-study.mjs modelling/configs/eight-stage-v1.json 100
+```
+
+Research agents buy actual shop offers and token packs, sell/replace items and finish complete 24-encounter games. `balanced`, `cascade`, `large-supported` (4-match foundation), `large` (5 focus), `large6` (6+ focus) and `specials` have separate shopping preferences. Six to One is deliberately recognized as large-match support, not reserved for the cascade agent. Special agents purchase matching footprint upgrades and prioritize early token supply. These are fixed heuristics, not optimizing agents; relative win rates depend on their choices.
+
+`-paid` variants retain the same build policy and evaluate the existing paid 2×2 reroll with four independent samples per area when three swaps or fewer remain. This is a rescue-spending control, not optimal economy planning. Their private RNG never reads the real game RNG.
+
+New opt-in engine rules: `singleRerollsPerRound` enables `reroll_single` on an ordinary numbered die, keeping its finishes, charging one use even if the face repeats, costing no coins/swaps, and immediately resolving matches. Charges reset each encounter; zero disables it. `packStageIncrease` adds a fixed amount per stage to both pack prices; zero preserves live pricing. Shop display, affordability and actual payment share `packCost`. These changes have engine tests; the single-die action is not exposed in the live UI yet.
+
+Telemetry distinguishes first-wave groups from refill cascades, counts single-die rerolls, records bought item IDs and per-encounter/final loadouts, upgrade levels and spawn rates. Research runner exports per-cell config/source identity, complete run rows, score/economy/clear-rate summaries and a replay-verified example. Confidence intervals use Wilson for wins and approximate paired intervals for matched-seed changes. Censored/capped resolutions and accounting assertions are explicit. Source identity is captured before each experiment begins; do not edit model sources while a study is running.
+
+Power arenas use the exact production engine, ten swaps and an unreachable goal, with free prescribed loadouts and no shopping. They measure conditional strength and score tails, not acquisition feasibility or full-game win rates. Each scenario stores individual scores for paired comparisons. Geometry tests exhaustively inspect visible swaps and all six one-die reroll outcomes on seeded stable boards; they do not inspect future RNG. Six-to-One rerolls correctly give the face 1 probability 2/6.

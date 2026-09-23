@@ -15,7 +15,7 @@ const hash = (x) =>
   createHash("sha256").update(JSON.stringify(x)).digest("hex");
 export function fingerprint(s) {
   return hash({
-    rng: s.rng,faceConversions:s.faceConversions,
+    rng: s.rng,faceConversions:s.faceConversions,singleRerollsUsed:s.singleRerollsUsed??0,
     nextId: s.nextId,
     round: s.round,
     score: s.score,
@@ -33,7 +33,7 @@ export function runOne({
   policy = "greedy",
   samples = 6,
   coinValue = 4,
-  maxActions = 400,
+  maxActions = Math.max(400, config.targets.length * 80),
   record = true,
 }) {
   let s = newGame(seed, config);
@@ -77,6 +77,8 @@ export function runOne({
     specialChainTriggers: counts(),
     naturalByPip: Array(6).fill(0),
     naturalScoreByPip: Array(6).fill(0),
+    firstWaveGroupSizes: {}, cascadeGroupSizes: {}, singleRerolls:0,
+    boughtItems:{}, finalBuild:null,
     matchedGroupSizes: {},
     depthHistogram: {},
     waveCounts: [],
@@ -116,6 +118,7 @@ export function runOne({
       coinsEarned: m.coinsEarned - startEarned,
       coinsSpent: m.coinsSpent - startSpent,
       coinsLeft: s.coins,
+      build:clone(s.config.trinkets), levels:clone(s.config.matchLevels), rates:clone(s.config.rates),
     });
   }
   for (;;) {
@@ -138,9 +141,10 @@ export function runOne({
     if (out.summary.directSpecials) m.specialSwapActions++;
     if(action.type === "swap") m.swaps++;
     if(action.type === "reroll") m.rerolls++;
+    if(action.type === "reroll_single") m.singleRerolls++;
     if(action.type === "buy_pack") {m.packPurchases++;m.packSpending+=out.summary.coinsSpent;}
     if(action.type === "visit_shop") {m.shopVisits++;m.roundRewards+=out.summary.coinsEarned;}
-    if(action.type==='buy_trinket') {m.trinketPurchases++;m.trinketSpending+=out.summary.coinsSpent;}
+    if(action.type==='buy_trinket') {m.boughtItems[action.id]=(m.boughtItems[action.id]??0)+1;m.trinketPurchases++;m.trinketSpending+=out.summary.coinsSpent;}
     if(action.type==='sell_trinket') {m.trinketSales++;m.saleIncome+=out.summary.coinsEarned;}
     if(out.summary.tokenType?.startsWith('multi-')) m.multiPicks[out.summary.tokenType.slice(6)]++;
     else if(out.summary.tokenType) m.tokenPicks[out.summary.tokenType]++;
@@ -177,6 +181,8 @@ export function runOne({
         if (a.trigger === "chain") m.specialChainTriggers[a.type]++;
       }
       for (const g of f.groups) {
+        const sizes=f.depth===0?m.firstWaveGroupSizes:m.cascadeGroupSizes;
+        sizes[g.length]=(sizes[g.length]??0)+1;
         m.matchedGroupSizes[g.length] =
           (m.matchedGroupSizes[g.length] || 0) + 1;
       }
@@ -222,6 +228,7 @@ export function runOne({
   m.trinketTriggers.convert=s.faceConversions??0;
   m.totalScore = s.total;
   m.coinsEnding = s.coins;
+  m.finalBuild={trinkets:clone(s.config.trinkets),levels:clone(s.config.matchLevels),rates:clone(s.config.rates)};
   m.finalHash = fingerprint(s);
   if (Object.values(m.points).reduce((a, b) => a + b, 0) !== m.totalScore)
     throw Error("Score attribution mismatch");
@@ -347,6 +354,8 @@ export function aggregate(runs, roundCount = runs[0]?.roundCount ?? DEFAULTS.tar
     specialSpawns: merge("specialSpawns"),
     specialTriggers: merge("specialTriggers"),
     specialChainTriggers: merge("specialChainTriggers"),
+    firstWaveGroupSizes:merge("firstWaveGroupSizes"),cascadeGroupSizes:merge("cascadeGroupSizes"),
+    singleRerolls:sum("singleRerolls"),boughtItems:merge("boughtItems"),
     matchedGroupSizes: merge("matchedGroupSizes"),
     depthHistogram: merge("depthHistogram"),
     naturalGroupsByPip: Array.from({ length: 6 }, (_, i) =>

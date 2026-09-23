@@ -70,6 +70,7 @@ const result = {
   modelHash: sourceHash([
     "modelling/runner.mjs",
     "modelling/policies.mjs",
+    "modelling/research-policies.mjs",
     "modelling/scenarios.mjs",
     "presentation.mjs",
   ]),
@@ -83,7 +84,7 @@ const result = {
     "Only visible information reaches policies; rollout samples use independent RNG.",
     "Matched seeds start equally, but streams diverge after different actions.",
     "Confidence intervals describe seed sampling under these fixed policies.",
-    "Starter drafts, pack purchases, token choices, payouts and match upgrades, trinkets and nine-round progression are simulated using the production engine.",
+    "Starter drafts, pack purchases, token choices, payouts and match upgrades, trinkets and configured-length progression are simulated using the production engine.",
     "Nominal scoring animation uses the same event plan and timings as the UI; decision time, falls, pauses and frame time are excluded.",
     "Pip-trinket score is allocated at raw additive Mult; other additive sources use dice pips. The residual score is multiplicative lift after rounding. Attribution is accounting, not causal lift.",
   ],
