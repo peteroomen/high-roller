@@ -1528,20 +1528,36 @@ dialog { background:#2b2535; }
 .is-gold .face {
  background-color:#c59a38;
  background-image:linear-gradient(117deg,#81531a 0%,#b98c2c 17%,#f3d989 32%,#fff0b2 39%,#c39a37 47%,#8a601f 58%,#dfb954 71%,#f6dfa0 81%,#b68a2e 100%);
- background-size:240% 160%;animation:metal-drift 7s ease-in-out infinite alternate;
+ background-size:240% 160%;background-position:var(--reflection-x,42%) var(--reflection-y,48%);
  box-shadow:inset 1px 2px 2px #fff0b380,inset -1px -2px 2px #6c471e66;
 }
 .is-gold .face-0 {box-shadow:inset 1px 2px 2px #fff0b380,inset -1px -2px 2px #6c471e66,0 5px 10px #0005}
-.is-shiny .face {
- background-image:linear-gradient(117deg,#56508170 0%,#b9eced70 18%,#f7e9ffbb 31%,#ffffeec9 39%,#ce9bcd77 45%,#70689565 57%,#8ed8c080 73%,#eed2f0aa 86%,#7c76a578 100%);
- background-size:240% 160%;animation:metal-drift 6s ease-in-out infinite alternate;
- box-shadow:inset 1px 2px 2px #f2e8ff99,inset -1px -2px 2px #35305455;
+.is-shiny:not(.is-gold) .face {
+ background-color:var(--die);
+ background-image:radial-gradient(ellipse at 15% 85%,transparent 22%,#fff4dd70 31%,var(--pearl-accent) 39%,transparent 58%),conic-gradient(from var(--swirl-angle,0deg) at 65% 45%,var(--die),var(--pearl-accent),var(--die) 48%,var(--pearl-accent) 78%,var(--die));
+ background-size:240% 160%;background-position:var(--reflection-x,42%) var(--reflection-y,48%);
+ box-shadow:inset 1px 2px 2px #f2e8ff70,inset -1px -2px 2px #35305466;
 }
-.is-shiny.is-gold .face {background-color:#d2ad4e;background-blend-mode:soft-light}
+.face-2 {filter:brightness(.45)}.face-3 {filter:brightness(.67)}.face-4 {filter:brightness(1.12)}.face-5 {filter:brightness(.5)}
 .is-gold .pip {box-shadow:0 1px 1px #fff8,inset 0 1px 2px #16090099}
 .is-shiny .pip {box-shadow:0 1px 1px #30244880,inset 0 1px 1px #fffd}
-@keyframes metal-drift {from{background-position:8% 15%}to{background-position:92% 85%}}
-.foil-pack {background-size:240% 150%;animation:metal-drift 8s ease-in-out infinite alternate;transition:transform .25s,filter .25s}
-.foil-pack:hover:not(:disabled),.foil-pack:active:not(:disabled) {filter:brightness(1.08);transform:perspective(500px) rotateY(-9deg) rotateX(5deg) translateY(-4px)}
+
+.foil-pack {background-size:240% 150%;background-position:42% 48%;transition:transform .25s,filter .25s,background-position .3s}
+.foil-pack:hover:not(:disabled),.foil-pack:active:not(:disabled) {background-position:70% 55%;filter:brightness(1.08);transform:perspective(500px) rotateY(-9deg) rotateX(5deg) translateY(-4px)}
 .reduced .is-gold .face,.reduced .is-shiny .face,.reduced .foil-pack {animation:none;background-position:40% 45%}
 @media(prefers-reduced-motion:reduce){.is-gold .face,.is-shiny .face,.foil-pack{animation:none;background-position:40% 45%}}
+
+/* Approved object collection: the studio and live UI share the same models. */
+.object-piece {position:relative;isolation:isolate;flex-shrink:0;overflow:visible;color:var(--piece-ink)!important;background:var(--piece)!important;transform:none!important;border:0!important;box-shadow:inset 1px 2px 2px #fff4,0 3px 0 #17111e55!important}
+.object-fallback {display:flex;align-items:center;justify-content:center;flex-direction:column;width:100%;height:100%;border-radius:inherit;overflow:hidden;color:var(--piece-ink)}
+.object-fallback svg {width:72%;height:72%}
+.object-resin .object-fallback {background:conic-gradient(from var(--object-flow,0deg) at 65% 45%,var(--piece),var(--piece-accent),var(--piece) 48%,var(--piece-accent) 78%,var(--piece));}
+.object-canvas {position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none}
+.object-ready {background:transparent!important;border:0!important;box-shadow:none!important}
+.object-ready .object-fallback {visibility:hidden}
+.object-ready .object-canvas {display:block}
+.bag-token-piece {width:24px;height:24px;border-radius:50%;display:inline-flex}
+.owned-trinket .object-piece {width:49px;height:49px}
+.trinket-card>.object-piece {width:48px;height:48px}
+.trinket-card {grid-template-columns:48px 1fr}
+@media(max-width:650px){.owned-trinket .object-piece {width:42px;height:42px}.trinket-card>.object-piece {width:40px;height:40px}.trinket-card {grid-template-columns:40px 1fr}}

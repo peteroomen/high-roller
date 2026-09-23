@@ -1,3 +1,6 @@
+import { LIGHTING } from "./lighting.mjs";
+import { applyPearlSwirl } from "./pearl.mjs";
+import { applyGoldGlint } from "./gold-glint.mjs";
 import { TIMING } from "./presentation.mjs";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -22,13 +25,13 @@ const SYMBOL = {
   color: "\u25C8",
   number: "#",
   bomb: "\u2739",
-  twenty:"20",wild:"✦",shiny:"✧",
+  twenty:"20",wild:"?",shiny:"✦",
   row: "↔",
 };
 const ICON_PATHS = {
  twenty:"M14 31C14 13 44 13 44 32C44 45 16 56 14 78H44 M71 20C50 20 50 80 71 80C92 80 92 20 71 20Z",
- wild:"M50 9L60 39L91 50L60 61L50 91L40 61L9 50L40 39Z",
- shiny:"M50 10L60 39L88 50L60 61L50 90L40 61L12 50L40 39Z M80 10V28 M71 19H89",
+ wild:"M29 30C29 7 72 7 72 31C72 46 50 46 50 61V65 M50 83V84",
+ shiny:"M50 9L60 39L91 50L60 61L50 91L40 61L9 50L40 39Z",
  convert:"M10 25C10 12 34 12 34 28V39C34 52 10 52 10 39C10 26 34 26 34 39 M42 50H64 M55 41L64 50L55 59 M76 57L87 48V87 M76 87H96",
  cascade:"M15 18H48V44H77V77 M61 63L77 80L93 63 M11 53H32V80",
  ones:"M15 29L31 17V77 M14 77H47 M64 40V73 M48 57H82",
@@ -104,13 +107,14 @@ class Board {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.scene.add(new THREE.AmbientLight(16777215, 1.1));
+    this.fillLight=new THREE.AmbientLight(0xffffff,.12);
+    this.scene.add(this.fillLight);
     const room=new RoomEnvironment(),pmrem=new THREE.PMREMGenerator(this.renderer);
     this.environment=pmrem.fromScene(room,.04);
     this.scene.environment=this.environment.texture;
     this.scene.environmentIntensity=.65;
     room.dispose();pmrem.dispose();
-    this.finishTime={value:0};
+
     const light = new THREE.DirectionalLight(16772824, 3);
     light.position.set(-3, 6, 10);
     light.castShadow = true;
@@ -120,7 +124,11 @@ class Board {
     light.shadow.camera.top = 4;
     light.shadow.camera.bottom = -4;
     light.shadow.normalBias = 0.03;
+    this.keyLight=light;
     this.scene.add(light);
+    this.rimLight=new THREE.DirectionalLight(0xffffff,.25);
+    this.rimLight.position.set(4,2,-1);this.scene.add(this.rimLight);
+    this.setLighting('dramatic',false);
     const plane = new THREE.Mesh(
       new THREE.PlaneGeometry(8, 8),
       new THREE.ShadowMaterial({ opacity: 0.35 }),
@@ -128,7 +136,8 @@ class Board {
     plane.position.z = -0.48;
     plane.receiveShadow = true;
     this.scene.add(plane);
-    this.geometry = new RoundedBoxGeometry(0.79, 0.79, 0.65, 5, 0.105);
+    this.geometry = new RoundedBoxGeometry(0.79, 0.79, 0.79, 8, 0.055);
+    this.cubeGeometry = new THREE.BoxGeometry(0.79, 0.79, 0.79);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(canvas.parentElement);
     this.resize();
@@ -145,15 +154,11 @@ class Board {
     const c = document.createElement("canvas");
     c.width = c.height = 160;
     const ctx = c.getContext("2d");
+    const pearl = shiny && !gold && !special;
     ctx.fillStyle = body;
-    ctx.fillRect(0, 0, 160, 160);
-    const grad = ctx.createLinearGradient(0, 0, 160, 160);
-    grad.addColorStop(0, "#ffffff25");
-    grad.addColorStop(1, "#0000000b");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 160, 160);
+    if (!pearl && !gold) ctx.fillRect(0, 0, 160, 160);
     ctx.fillStyle = "#493c2d12";
-    for(let i=0;i<210;i++) ctx.fillRect((i*47)%160,(i*73+Math.floor(i/7)*11)%160,1.3,1.3);
+    for(let i=0;i<(gold||pearl?0:210);i++) ctx.fillRect((i*47)%160,(i*73+Math.floor(i/7)*11)%160,1.3,1.3);
     ctx.fillStyle = ink;
     const scale = special ? 31 : 34,
       cy = special ? 72 : 80;
@@ -178,28 +183,15 @@ class Board {
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.MeshPhysicalMaterial({
       map: tex,
-      roughness: shiny?.24:gold?.27:.48,
-      metalness: gold?.88:shiny?.62:.02,
-      clearcoat: shiny?.65:gold?.35:.18,
-      clearcoatRoughness:.2,
-      iridescence: shiny?.65:0,
-      iridescenceIOR:1.35,
-      iridescenceThicknessRange:[180,420],
+      roughness: gold?.33:shiny?.23:.55,
+      metalness: gold?1:0,
+      clearcoat: gold?.12:shiny?1:.08,
+      clearcoatRoughness:shiny?.045:.22,
+      iridescence: 0,
+      envMapIntensity: 1,
     });
-    if(gold||shiny) {
-      mat.onBeforeCompile=shader=>{
-        shader.uniforms.uFinishTime=this.finishTime;
-        shader.fragmentShader='uniform float uFinishTime;\n'+shader.fragmentShader;
-        shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
-          float foilPhase=vMapUv.x*.9+vMapUv.y*.55+uFinishTime*.11+dot(normalize(vViewPosition),vec3(.6,.3,.0));
-          float ribbon=pow(.5+.5*sin(foilPhase*6.28318),9.0);
-          float reflection=.72+ribbon*.72;
-          diffuseColor.rgb*=reflection;
-          ${shiny ? 'vec3 spectrum=.78+.22*cos(foilPhase*6.28318+vec3(0.,2.1,4.2)); diffuseColor.rgb*=spectrum;' : ''}
-        `);
-      };
-      mat.customProgramCacheKey=()=>`foil-${gold}-${shiny}`;
-    }
+    if (pearl) applyPearlSwirl(mat, body, n);
+    if (gold) applyGoldGlint(mat, body);
     this.materials.set(key, mat);
     return mat;
   }
@@ -208,12 +200,22 @@ class Board {
       this.material(dieColor(d), pipColor(d), d.n, d.special, d.mult, d.shiny, d.gold, d.converted),
     );
   }
-  tickFinish(now, reduced=false) {
-    this.finishTime.value=reduced?0:now/1000;
-    this.scene.environmentRotation.y=reduced?0:Math.sin(now/9000)*.22;
+  setLighting(name, render=true) {
+    const preset=LIGHTING[name]??LIGHTING.table;
+    this.fillLight.intensity=preset.ambient;
+    this.keyLight.intensity=preset.key;this.keyLight.position.set(...preset.position);
+    this.rimLight.intensity=preset.rim;
+    this.scene.environmentIntensity=preset.environment;
+    this.scene.environmentRotation.y=preset.rotation;
+    if(render)this.render();
   }
   render() {
     this.renderer.render(this.scene, this.camera);
+  }
+  advanceFinish(seconds) {
+    for (const mat of this.materials.values()) {
+      if (mat.userData.pearlUniforms) mat.userData.pearlUniforms.hrPearlTime.value += seconds;
+    }
   }
   async set(board, { duration = 0, roll = false } = {}) {
     const ids = new Set(board.map((d) => d.id));
@@ -283,7 +285,7 @@ class Board {
     });
   }
   idle(b,amount) {
-    for(const d of b) if(d.special) { const m=this.meshes.get(d.id); if(m) m.rotation.z=amount*.07; }
+    for(const d of b) if(d.special||d.gold||d.shiny) { const m=this.meshes.get(d.id); if(m) {m.rotation.z=amount*.07;m.rotation.y=-.13+amount*.12;} }
     this.render();
   }
   async wobble(indices, board, duration=TIMING.shake) {
@@ -299,4 +301,4 @@ class Board {
     this.render();
   }
 }
-export { iconMarkup, Board, SPECIAL_HEX, dieColor, pipColor, SYMBOL };
+export { iconMarkup, Board, SPECIAL_HEX, dieColor, pipColor, SYMBOL, ICON_PATHS, SCRAWL };

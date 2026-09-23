@@ -24,6 +24,7 @@ import {
 import { Board, SPECIAL_HEX, dieColor, SYMBOL, iconMarkup } from "./board.js";
 import { scoringPlan, TIMING, outlinePaths } from "./presentation.mjs";
 import { CSSBoard } from "./css-board.js";
+import {ObjectViews,trinketMarkup,tokenMarkup} from "./object-views.mjs";
 const $ = (id) => document.getElementById(id),
   fmt = (n) => n.toLocaleString();
 const names = {
@@ -69,10 +70,6 @@ let busy = false,
   audioCtx;
 const cells = [];
 let viewBoard = state.board;
-function trinketMarkup(t) {
-  const index=TRINKETS.indexOf(t),colours=['#dfc48b','#b39bc9','#8fb6a3','#d29791','#88a8c6','#bd9dc2'];
-  return `<span class="trinket-die ${t.stat??'charm'}" style="--piece:${colours[index%colours.length]};--angle:${[-7,5,-3,8][index%4]}deg">${t.tier?`<b>${tierLabel(t.tier)}</b><small>${t.stat==='pips'?'PIP':'MULT'}</small>`:iconMarkup(t.icon)}</span>`;
-}
 function trinketInfo(t) {
   if(busy)return;
   modal(`${closeButton}<div class="trinket-detail">${trinketMarkup(t)}<h2>${t.name}</h2><p>${trinketDescription(t,state.config)}</p></div><button class="primary" data-close>Back</button>`);
@@ -86,8 +83,8 @@ function inventory() {
   document.querySelectorAll('[data-trinket-info]').forEach(el=>el.onclick=()=>trinketInfo(TRINKETS.find(t=>t.id===el.dataset.trinketInfo)));
 }
 function tokenBag() {
-  $("special-list").innerHTML=TYPES.map((t,i)=>`<div class="special-item"><span class="special-token">${iconMarkup(t)}</span><div><b>${names[t]} <em>${state.config.rates[i]}%</em></b><small>${descriptions[t]}</small></div></div>`).join("");
-  $("token-bag").innerHTML=TYPES.flatMap((t,i)=>state.config.rates[i]>0?[`<span class="bag-token" title="${names[t]}">${iconMarkup(t)}<b>${state.config.rates[i]}%</b></span>`]:[]).join("") || '<small>Choose a starter token</small>';
+  $("special-list").innerHTML=TYPES.map((t,i)=>`<div class="special-item">${tokenMarkup(t,"special-token")}<div><b>${names[t]} <em>${state.config.rates[i]}%</em></b><small>${descriptions[t]}</small></div></div>`).join("");
+  $("token-bag").innerHTML=TYPES.flatMap((t,i)=>state.config.rates[i]>0?[`<span class="bag-token" title="${names[t]}">${tokenMarkup(t,"bag-token-piece")}<b>${state.config.rates[i]}%</b></span>`]:[]).join("") || '<small>Choose a starter token</small>';
 }
 function save() {
   try {
@@ -135,6 +132,7 @@ try {
 } catch {
   board = new CSSBoard($("scene"), animate);
 }
+const objectViews=new ObjectViews({webgl:board instanceof Board,motion:()=>!prefs.reduced});
 function sound(kind, level = 0) {
   if (!prefs.sound) return;
   try {
@@ -593,7 +591,7 @@ const closeButton =
   '<button class="close-modal" data-close aria-label="Close dialog">\xD7</button>';
 function rules() {
   const r=rulesFor(state.config);
-  modal(`${closeButton}<div class="eyebrow">RULES</div><h2>Pips × Mult</h2><div class="rule">Match 3+ identical numbers. Wilds substitute for one number per wave: longest run wins, then higher number. Intersections of the same number merge.</div><div class="rule">All pips and Mult carry through the move. Matches add ${r.sizeMult.join('/')} Mult for 3/4/5/6+ dice, plus levels, +1 for low numbers and cascade depth. Group bonuses fly together. Trinkets score separately.</div><div class="rule">Shiny matches multiply running Mult by ×${r.shinyFactor} per shiny die after that wave’s additions. Loaded Die multiplies once at the end. Mult rounds to two decimals per multiplication; final points round down.</div><div class="rule">Gold dice keep their number and colour. ${r.goldRate}% of ordinary dice are gold; each matched gold die pays 1 coin. Blasts do not pay gold.</div>${TYPES.map(t=>`<div class="rule"><strong>${names[t]}</strong> — ${descriptions[t]}.</div>`).join('')}<div class="rule">Activated specials and cleared Wilds contribute ${r.specialPips} pips; Twenty contributes 20. No automatic inclusion of the swapped neighbour. Active specials add +2 Mult; Wild/Twenty add no separate Mult.</div><div class="rule">Each token adds ${r.tokenBoost} percentage point with no upgrade cap. If total rates exceed 100, spawn shares normalise proportionally. Stronger token types have rarer pack offers.</div><div class="rule">Shop packs reveal 3 tokens: choose 1. Each cleared round pays ${r.roundReward} + 1 coin per swap left. Four trinket slots. Reroll 2×2 costs ${r.rerollCost} coins and no swap.</div><button class="primary" data-close>Play</button>`);
+  modal(`${closeButton}<div class="eyebrow">RULES</div><h2>Pips × Mult</h2><div class="rule">Match 3+ identical numbers. Wilds substitute for one number per wave: longest run wins, then higher number. Intersections of the same number merge.</div><div class="rule">All pips and Mult carry through the move. Matches add ${r.sizeMult.join('/')} Mult for 3/4/5/6+ dice, plus levels, +1 for low numbers and cascade depth. Group bonuses fly together. Trinkets score separately.</div><div class="rule">Shiny matches multiply running Mult by ×${r.shinyFactor} per shiny die after that wave’s additions. Loaded Die multiplies once at the end. Mult rounds to two decimals per multiplication; final points round down.</div><div class="rule">Gold dice keep their number and have a gold body. ${r.goldRate}% of ordinary dice are gold; each matched gold die pays 1 coin. Blasts do not pay gold.</div>${TYPES.map(t=>`<div class="rule"><strong>${names[t]}</strong> — ${descriptions[t]}.</div>`).join('')}<div class="rule">Activated specials and cleared Wilds contribute ${r.specialPips} pips; Twenty contributes 20. No automatic inclusion of the swapped neighbour. Active specials add +2 Mult; Wild/Twenty add no separate Mult.</div><div class="rule">Each token adds ${r.tokenBoost} percentage point with no upgrade cap. If total rates exceed 100, spawn shares normalise proportionally. Stronger token types have rarer pack offers.</div><div class="rule">Shop packs reveal 3 tokens: choose 1. Each cleared round pays ${r.roundReward} + 1 coin per swap left. Four trinket slots. Reroll 2×2 costs ${r.rerollCost} coins and no swap.</div><button class="primary" data-close>Play</button>`);
 }
 function ledger() {
   const last=state.history.findLast(h=>h.action.type==='swap'||h.action.type==='reroll');
@@ -605,7 +603,7 @@ function bagInfo() {
 }
 function pauseMenu() {
   modal(
-    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button><button class="secondary" id="pause-lab">Test bench</button><button class="secondary" id="pause-bag">Dice bag</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 06</p>`,
+    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button><button class="secondary" id="pause-lab">Test bench</button><button class="secondary" id="pause-bag">Dice bag</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 07</p>`,
   );
   for (const k of ["sound", "fast", "reduced"])
     $("pref-" + k).onchange = (e) => {
@@ -681,7 +679,7 @@ function progressionScreen() {
     const d=state.draft,starter=d.kind==='starter',remaining=d.limit-d.picks.length,multi=d.offers[0]?.startsWith('multi-');
     modal(`<div class="eyebrow">${starter?'YOUR FIRST TOKEN':d.name.toUpperCase()}</div><h2>${starter?'Pick your starter':'Choose one'}</h2><p class="draft-note">${starter?'Choose 1 of 3 · free':`Keep ${d.limit} of ${d.offers.length} tokens`} · ${multi?'level up match Mult':`+${r.tokenBoost}% spawn chance each`}</p><div class="token-choices ${starter?'starter':''} ${!starter&&!d.picks.length?'pack-opening':''}">${d.offers.map((t,i)=>{
       const tier=Number(t.slice(6)),picked=d.picks.includes(i),name=multi?`${tierLabel(tier)}-match`:names[t];
-      return `<button class="token-choice ${picked?'picked':''}" data-token="${i}" ${picked||!canTakeToken(state,t)?'disabled':''} aria-label="Choose ${name} token"><span class="token-coin ${multi?'number-token':''}">${multi?tierLabel(tier):iconMarkup(t)}</span><b>${name}</b>${multi?'':`<span class="rarity">${r.specialWeights[t]>=4?'COMMON':r.specialWeights[t]>=2?'UNCOMMON':'RARE'}</span>`}<small>${multi?`Level ${(state.config.matchLevels[tier]??0)+1} · +${r.levelBoost[tier-3]} Mult per level`:descriptions[t]}</small><em>${picked?'✓ Added':multi?`+${matchMult(tier,state.config)} → +${matchMult(tier,state.config)+r.levelBoost[tier-3]} Mult`:`${state.config.rates[TYPES.indexOf(t)]}% → ${state.config.rates[TYPES.indexOf(t)]+r.tokenBoost}%`}</em></button>`;
+      return `<button class="token-choice ${picked?'picked':''}" data-token="${i}" ${picked||!canTakeToken(state,t)?'disabled':''} aria-label="Choose ${name} token">${tokenMarkup(multi?tier:t)}<b>${name}</b>${multi?'':`<span class="rarity">${r.specialWeights[t]>=4?'COMMON':r.specialWeights[t]>=2?'UNCOMMON':'RARE'}</span>`}<small>${multi?`Level ${(state.config.matchLevels[tier]??0)+1} · +${r.levelBoost[tier-3]} Mult per level`:descriptions[t]}</small><em>${picked?'✓ Added':multi?`+${matchMult(tier,state.config)} → +${matchMult(tier,state.config)+r.levelBoost[tier-3]} Mult`:`${state.config.rates[TYPES.indexOf(t)]}% → ${state.config.rates[TYPES.indexOf(t)]+r.tokenBoost}%`}</em></button>`;
     }).join('')}</div><div class="pack-footer">${starter?'Every other special starts at 0%.':`${d.picks.length} / ${d.limit} kept · tokens last the whole run`}</div>`);
     document.querySelectorAll('[data-token]').forEach(el=>el.onclick=()=>progress({type:'choose_token',index:Number(el.dataset.token)}));
   } else if(state.status==='shop') {
@@ -786,14 +784,16 @@ save();
 resetCalc();
 if (state.status !== "playing") endRound();
 
-let idleActive=false;
+let idleActive=false,lastFinishTime=0;
 function idleTick(now) {
+  const seconds=Math.min(.05,(now-lastFinishTime)/1000);lastFinishTime=now;
+  const flow=!paused && !document.hidden && !prefs.reduced && state.status==='playing' && viewBoard.some(d=>d.shiny&&!d.gold);
+  if(flow)board.advanceFinish(seconds);
   const enabled=!busy && !paused && !document.hidden && !prefs.reduced && state.status==="playing";
   const phase=(now%4400)/650;
   const amount=enabled && phase<1 ? Math.sin(phase*Math.PI*8)*Math.sin(phase*Math.PI) : 0;
-  board.tickFinish?.(now,prefs.reduced||paused);
-  const hasFinish=enabled&&viewBoard.some(d=>d.gold||d.shiny);
-  if(amount || idleActive || hasFinish) board.idle(viewBoard,amount);
+  if(amount || idleActive) board.idle(viewBoard,amount);
+  else if(flow)board.render?.();
   idleActive=Boolean(amount);
   requestAnimationFrame(idleTick);
 }

@@ -1,5 +1,6 @@
 import { TIMING } from "./presentation.mjs";
 import { dieColor, pipColor, iconMarkup } from "./board.js";
+import { PEARL_ACCENTS } from "./pearl.mjs";
 const dots = {
   1: [4],
   2: [0, 8],
@@ -32,6 +33,10 @@ class CSSBoard {
     ).join("");
   }
 
+  reflect(m, amount=0) {
+    m.el.style.setProperty('--reflection-x',`${42+amount*34}%`);
+    m.el.style.setProperty('--reflection-y',`${48+amount*18}%`);
+  }
   async set(board, { duration = 0, roll = false } = {}) {
     const ids = new Set(board.map((d) => d.id));
     for (const [id, m] of this.meshes)
@@ -60,6 +65,7 @@ class CSSBoard {
         this.meshes.set(d.id, m);
       }
       m.el.classList.toggle("is-shiny",Boolean(d.shiny));m.el.classList.toggle("is-gold",Boolean(d.gold));
+      m.el.style.setProperty('--pearl-accent',PEARL_ACCENTS[d.n-1] ?? '#9dcfc7');
       const key = `${d.n}-${d.special}-${d.mult}-${d.converted}-${d.gold}-${d.shiny}`;
       if (m.key !== key) {
         m.cube.innerHTML = this.faces(d);
@@ -82,6 +88,7 @@ class CSSBoard {
         a.m.y = a.y + (a.ty - a.y) * e;
         a.m.el.style.left = (a.m.x * 100) / 6 + "%";
         a.m.el.style.top = (a.m.y * 100) / 6 + "%";
+        this.reflect(a.m,a.spin?Math.sin((1-e)*Math.PI*2):0);
         a.m.cube.style.transform = `rotateX(${10 + (a.spin ? (1 - e) * 360 : 0)}deg) rotateY(${-12 + (a.spin ? (1 - e) * 360 : 0)}deg)`;
       }
     };
@@ -98,14 +105,20 @@ class CSSBoard {
     });
   }
   idle(b,amount) {
-    for(const d of b) if(d.special) {const m=this.meshes.get(d.id); if(m) m.cube.style.transform=`rotateX(10deg) rotateY(-12deg) rotateZ(${amount*5}deg)`;}
+    for(const d of b) if(d.special||d.gold||d.shiny) {const m=this.meshes.get(d.id); if(m) {m.cube.style.transform=`rotateX(10deg) rotateY(${-12+amount*8}deg) rotateZ(${amount*5}deg)`;this.reflect(m,amount);}}
+  }
+  advanceFinish(seconds) {
+    this.finishTime=(this.finishTime??0)+seconds;
+    for(const m of this.meshes.values())if(m.el.classList.contains('is-shiny'))m.el.style.setProperty('--swirl-angle',`${this.finishTime*18}deg`);
   }
   async wobble(indices, b, duration=TIMING.shake) {
     const ms = indices.map((i) => this.meshes.get(b[i].id));
     await this.animate(duration, (t) => {
       for (const m of ms)
-        if (m)
+        if (m) {
+          this.reflect(m,Math.sin(t*Math.PI*4)*(1-t));
           m.cube.style.transform = `rotateX(10deg) rotateY(-12deg) rotateZ(${Math.sin(t * Math.PI * 4) * (1 - t) * 8}deg) scale(${1+Math.sin(t*Math.PI)*.22})`;
+        }
     });
   }
 }
