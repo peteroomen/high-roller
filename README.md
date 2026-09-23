@@ -1,6 +1,6 @@
-# High Roller — Playtest 05
+# High Roller — Playtest 06
 
-Mobile-first dice matching roguelite. Three stages, numbered match upgrades, and trinkets. Three.js draws the dice; CSS 3D is the fallback when WebGL is unavailable. No backend or accounts.
+Mobile dice matching roguelite: three stages, nine rounds, token packs and sixteen trinkets. Three.js draws the dice, with CSS 3D fallback when WebGL is unavailable. No accounts or backend.
 
 ## Run and deploy
 
@@ -12,53 +12,41 @@ npm run simulate:smoke
 npm run build
 ```
 
-Vercel: root `./`, Vite preset, Node 22, `npm ci`, `npm run build`, output `dist`. No environment variables. See [DEPLOY.md](DEPLOY.md).
+Vercel: root `./`, Vite preset, Node 22, install `npm ci`, build `npm run build`, output `dist`. No environment variables. See [DEPLOY.md](DEPLOY.md).
 
-## Scoring
+## Rules
 
-Swap adjacent dice to match at least three equal numbers in a row or column. Intersections merge into one group. Invalid swaps are free. Ordinary dice use one colour per pip count; bone specials have symbols and no pips.
+Swap adjacent dice to match three or more equal numbers. Intersections merge. Invalid swaps cost nothing. Dice colours identify pip values; symbol specials are bone. Six to One conversions retain the colour of ones, with a red handwritten 1 over six pips.
 
-**Move score = (all cleared pips + trinket pip bonuses) × all earned Mult**, accumulated over every cascade, then banked once. An affected ordinary die scores once per wave, even when effects overlap. No separate chips stat.
+Move score is **all cleared pips plus trinket pips, multiplied by running Mult**, banked once after all cascades. Each die contributes pips once per wave. Each group sends one combined Mult number; trinkets send separate contributions. Ordinary matches of 1s/2s add +1 Mult. Each group gains +1 per cascade depth.
 
-| Match size | Starting Mult | Mult gained per numbered token | Pip trinket per group | Mult trinket per group |
+| Match size | Initial Mult | Per numbered token | Pip trinket | Mult trinket |
 |---|---:|---:|---:|---:|
-| 3 | +2 | +2 | +16 pips | +2 Mult |
-| 4 | +3 | +4 | +32 pips | +4 Mult |
-| 5 | +4 | +6 | +56 pips | +8 Mult |
-| 6+ | +5 | +8 | +88 pips | +12 Mult |
+| 3 | +2 | +2 | +16 | +2 |
+| 4 | +3 | +4 | +32 | +4 |
+| 5 | +4 | +6 | +56 | +8 |
+| 6+ | +5 | +8 | +88 | +12 |
 
-Levels start at 1. A token upgrades only its match tier for the rest of the run. Each owned trinket triggers once per matching group, including cascades. Large connected groups use 6+. Specials do not trigger match trinkets or tier upgrades.
+Each wave applies group additions, global trinket additions, then ×1.5 for each matched Shiny. Loaded Die multiplies final move Mult by four once. Mult rounds to two decimal places after multiplication; points round down. Bonus pips are not a separate chips stat.
 
-Matches of 1s/2s add +1 Mult. Each group in cascade wave two adds +1, wave three +2, and so on. Group bonuses combine into **one flying Mult number**. Trinkets then shake/zoom and send their own number to the appropriate counter. Two plain three-die matches of 4s and 5s score `(12 + 15) × (2 + 2) = 108`.
+## Dice and economy
 
-## Specials and economy
+- Column/Row clear a line, Bomb clears 3×3, Number clears the swapped partner's number. Special Sweep clears symbol specials. Swapping activates these; the partner is excluded from that special's footprint.
+- Symbol specials contribute 10 pips when cleared, plus their group Mult where applicable. Twenty contributes 20 pips and no own Mult: collect it by swapping with a partner that creates a match, or hit it with another special.
+- Wild matches a number in its line, contributes 10 pips, and cannot activate on an arbitrary swap. A Wild takes one consistent identity per wave; longest runs win, then higher numbers and board order.
+- Shiny is a normal numbered die with ×1.5 Mult when naturally matched. Gold is an independent 5% finish on ordinary dice, paying one coin per naturally matched die. Blasts alone trigger neither finish reward. Gold and Shiny can coexist.
+- All special rates start at zero. Choose one of three starter tokens. Each special token adds **1 percentage point**, without a token cap. Above 100 combined points, rates normalize proportionally. Rarity affects token offers, not the value of a chosen token.
+- Both packs reveal three choices; take one. Numbered pack costs 4 coins; special pack costs 5. One pack per shop. Four trinket slots, no duplicates; sell for half price rounded down.
+- Each cleared round pays **5 coins + 1 per remaining swap**, including the final round. Coins carry. The existing 2×2 reroll costs 3 coins and no swap.
 
-Swap a special with any neighbour to activate it at its destination. The displaced die only counts if naturally inside the footprint. Row/Column clear their line; Bomb clears a clipped 3×3 area; Number sweep clears the swapped face; Special sweep hits all specials; Coin clears orthogonal neighbours and grants one coin. Chained specials trigger once each. Number sweeps inherit the initial target; swapping two specials targets the most common numbered value (ties higher). Each special adds its carried Mult, normally +2, plus cascade bonus.
+New trinkets: Six to One, Echo Die (+1 per cascade wave), One More (+1 per cleared one), Loaded Die (×4 final Mult), Full Spectrum (+10 once when the move clears all six numbers), Big Bang (bomb 5×5), Broad Columns and Broad Rows (three-wide lines). Bomb was already 3×3, so its upgrade expands to 5×5. Six to One prevents Full Spectrum while equipped.
 
-All spawn rates start at zero. Choose one of three free starter tokens; each special token adds **2 percentage points**, reduced from 5. Total special chance is capped at **30%**, leaving at least 70% ordinary dice in the unconditioned refill distribution. Fresh-board match rejection slightly changes observed initial-board frequencies. Starter offers exclude Special sweep.
+## Playtesting
 
-Between rounds receive **5 coins + floor(unused moves / 3)**. Coins carry. Reroll a 2×2 area for 3 coins without using a move; special symbols stay unchanged.
+Trinkets have a permanent four-slot rack; tap for details. Bag shows rates. Pause → Test bench configures seeded runs, rates, goals, levels and starting items. Normal gameplay fits phone height; shop contents can scroll while its next-round button stays fixed. `mobile-check.html?w=320&h=640` is the viewport QA wrapper.
 
-- Buy at most one foil pack per shop. Special packs cost 5, reveal five distinct types, and let you keep three. Lucky Dip is general; Straight Flush favours lines; Wild Things favours sweeps and coins. Caps can reduce the remaining eligible choices.
-- **Count Me In** costs 4. Its five numbered tokens contain all four tiers plus one extra (weighted toward 3); keep three. Duplicate numbered offers can both be selected and stack.
-- Each shop offers up to three unowned trinkets at 5 coins each. Four inventory slots; no duplicate trinkets. Sell for 2 coins in the shop. Sold stock cannot be bought again in that visit.
+Build 0.6.0 / engine 7 exports original configuration and accepted actions. Old Coin dice migrate to Gold ordinary dice. Start a new run to use every new default. Both renderers share symbols, colours, converted-six artwork and light face rims; lighting and geometry still differ.
 
-## Stages
+[Balance decisions](docs/playtest-06-balance.md), [verification](docs/playtest-06-verification.md), [whole-game modelling](modelling/README.md).
 
-Ten moves per round; the full cascade resolves before checking the target.
-
-| Stage | Rounds | Goals |
-|---|---|---|
-| Opening Table | 1–3 | 220 / 500 / 1,000 |
-| High Stakes | 4–6 | 1,700 / 2,700 / 4,000 |
-| Final Table | 7–9 | 5,500 / 7,200 / 9,500 |
-
-Stage boundaries are progression milestones with stronger targets, not additional boss rules. Shops appear between every round, including stage boundaries.
-
-## Animation, testing and saves
-
-Rounded outlines appear immediately after a swap. Each numbered die shakes/zooms, sends pips, then clears with a pop after the groups score. Pip movement accelerates die by die. Landing holds are now **180 ms for pips / 300 ms for group and trinket numbers**, down from 500 ms. A plain three-die scoring sequence takes about 2.74 seconds, versus 5.47 seconds previously (excluding swap/refill). Fast mode shortens motion; landing holds remain legible. Reduced motion suppresses idle shakes and punches.
-
-The test bench supports seeds, goals, initial rates, match levels and up to four starting trinkets. All accepted actions save before animation. Reloading mid-animation restores the settled result; partial packs retain picks. Exports identify build 0.5.0 / engine 6 and the original configuration. Old saves keep their goals and old special/size rules so a partly opened pack remains finishable. **Start a new run for the new balance and all nine rounds.**
-
-[Whole-game modelling](modelling/README.md) covers every mechanic using the production engine. [Balance notes](docs/playtest-05-balance.md) include held-out results and limitations. [Verification](docs/playtest-05-verification.md) records browser and automated checks. The 6+ rewards have sparse empirical exposure and remain provisional. Face modification and permanent unlocks remain outside scope.
+Future experiments: special-pair combo patterns could trade away trinket design space; deliberate reroll actions could help arrange four/five matches. Neither expansion is included here. The existing paid 2×2 reroll remains.

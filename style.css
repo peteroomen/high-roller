@@ -1452,3 +1452,81 @@ dialog { background:#2b2535; }
  #last-gain {min-height:11px;margin-top:0;line-height:1.2}
  .board-foot {margin:10px 2px 8px}
 }
+
+/* Playtest 06: finishes, a prominent trinket rack and a compact table shop. */
+.trinket-die,.trinket-die.pips {background:var(--piece,#b39bc9);transform:rotate(var(--angle,-5deg));border:1px solid #fff5;box-shadow:inset 1px 2px 0 #fff6,0 4px 0 #17111e55}
+.trinket-die svg {width:72%;height:72%}
+#trinket-rack {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;min-height:86px;margin:0 0 12px}
+.owned-trinket {border:1px solid #79618c;background:#42334f;flex-direction:column;gap:8px;padding:9px 3px 6px;min-width:0}
+.owned-trinket .trinket-die {width:45px;height:45px;border-radius:10px}
+.owned-trinket>span:last-child {font:600 10px/1.2 'DM Sans';color:#e9dceb;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.empty-slot {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:1px dashed #64516f;border-radius:8px;color:#8f7a9b}
+.empty-slot>span {font-size:25px;font-weight:400}.empty-slot small {font-size:8px;letter-spacing:1px}
+.trinket-detail {display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 0}
+.trinket-detail .trinket-die {width:85px;height:85px;margin-bottom:12px}
+.bag-button {padding:8px 12px;background:#40344c;border:1px solid #7a6489;border-radius:8px;font-size:12px;color:#f1deff}
+.cell[data-shiny="true"] {overflow:hidden}
+.cell[data-shiny="true"]:after {content:'';position:absolute;inset:8%;pointer-events:none;border-radius:13%;background:linear-gradient(110deg,transparent 20%,#fff0 35%,#fff9 48%,#fff0 59%,transparent 80%);transform:translateX(-160%);animation:die-shine 3.8s infinite}
+.cell[data-shiny="true"]:before {content:'✧';position:absolute;right:9%;top:7%;font-size:14px;color:#fff;pointer-events:none;text-shadow:0 1px 2px #392943}
+.cell[data-gold="true"] {box-shadow:inset 0 0 0 2px #efd17e99}
+.cell[data-gold="true"]:before {content:'●';position:absolute;right:7%;bottom:6%;color:#ffdc6c;font-size:12px;pointer-events:none;text-shadow:0 1px 2px #432910}
+.cell[data-gold="true"][data-shiny="true"]:before {content:'✧';top:7%;bottom:auto}
+.is-gold .face-0 {box-shadow:inset 0 0 0 2px #f9d57c,0 5px 10px #0005}
+@keyframes die-shine {0%,38%{transform:translateX(-160%)}65%,100%{transform:translateX(160%)}}
+.reduced .cell[data-shiny="true"]:after {animation:none;transform:none;opacity:.3}
+.shop-dialog {max-width:min(620px,96vw);width:620px;max-height:94dvh;overflow:hidden;border-radius:14px}
+.shop-dialog #modal-content {max-height:94dvh;display:flex;flex-direction:column;padding:20px;box-sizing:border-box}
+.shop-heading {flex-shrink:0}.shop-heading h2 {margin:5px 0 8px;font-size:25px}
+.shop-scroll {min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:0 2px 8px}
+.shop-section {margin:12px 0 9px;font-size:12px}
+.trinket-shelf {grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.trinket-card {display:grid;grid-template-columns:48px 1fr;grid-template-rows:auto 1fr auto;gap:4px 10px;padding:12px;text-align:left;min-height:115px}
+.trinket-card>.trinket-die {grid-row:1/4;align-self:center;width:43px;height:43px}
+.trinket-card>b {font-size:12px}.trinket-card>small {font-size:10px;line-height:1.4;min-height:29px}.trinket-card>em {font-size:12px}
+.foil-shelf {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:2px 3px 6px}
+.foil-pack {min-height:112px;display:grid;grid-template-columns:40px 1fr;grid-template-rows:auto auto auto;padding:15px 11px;gap:3px 8px;text-align:left;transform:rotate(-1deg)}
+.foil-1 {transform:rotate(1deg)}.foil-art {grid-row:1/4;width:36px;height:36px;margin:0;align-self:center}.number-art {font-size:32px}
+.foil-pack b {font-size:15px}.foil-pack small {font-size:10px;min-height:0}.foil-pack em {padding:3px 9px;justify-self:start;font-size:11px}
+.owned-shelf {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.sell-trinket {display:flex;flex-direction:column;text-align:center;padding:8px 3px;gap:6px;font-size:9px;min-width:0}.sell-trinket small {font-size:9px!important}
+.shop-next {margin-top:10px;flex-shrink:0;font-size:13px;min-height:44px}
+@media(max-width:620px) {
+ html,body {height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none}
+ body {display:flex;flex-direction:column}
+ header {flex:0 0 43px;box-sizing:border-box;padding:6px 12px;gap:4px}
+ .wordmark {font-size:17px;gap:6px}.logo-die {width:26px;height:26px;font-size:23px}.edition {font-size:6px;padding:4px;margin-left:0}
+ .header-right {gap:4px}.icon-button {width:28px;height:28px}
+ .table {flex:1;min-height:0;width:100%;box-sizing:border-box;padding:0 12px 8px;margin:0 auto;gap:7px;justify-content:flex-start}
+ .score-rail {flex:0 0 119px;gap:9px;align-self:stretch;position:relative;min-height:0}
+ .score-card {padding:8px 10px;align-self:start;min-height:90px;border-radius:8px}
+ .target,.score {font-size:26px}.moves-row {padding-top:5px;margin-top:5px}.moves-row b {font-size:17px}
+ .calculator {padding:0;position:relative}.calc-title {font-size:8px;height:11px;margin:2px 0 3px;line-height:1.1}
+ #collected-total {display:none}.equation {margin:0 0 24px}.equation>div {padding:4px 0}.equation b {font-size:24px}.equation small {font-size:6px}
+ #calc-detail {font-size:9px;margin:0;min-height:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ #last-gain {font-size:10px;margin:1px 0 0;line-height:1.1;min-height:11px}
+ .score-fly {font-size:24px}
+ .play-area {flex:1;min-height:0;display:flex;flex-direction:column;align-items:stretch}
+ .board-heading {margin:0 0 5px;height:15px;flex-shrink:0;gap:4px;font-size:9px}#chain-label {font-size:8px}.round-dots {gap:3px}
+ #match-levels {height:26px;flex-shrink:0;margin:0 0 6px;gap:5px}#match-levels>span {padding:3px 5px;gap:4px;flex-wrap:nowrap}#match-levels b {font-size:14px}#match-levels small {font-size:7px}#match-levels em {font-size:9px}
+ #trinket-rack {height:69px;min-height:69px;flex-shrink:0;gap:7px;margin:0 0 7px;order:0}
+ .owned-trinket {gap:5px;padding:6px 2px 4px}.owned-trinket .trinket-die {width:36px;height:36px;border-radius:9px}.owned-trinket>span:last-child {font-size:8px}.owned-trinket .trinket-die b {font-size:21px}
+ .tray {width:min(100%,calc(100dvh - 374px));box-sizing:border-box;align-self:center;padding:6px 6px 15px;flex:0 1 auto;min-height:0;margin:auto 0;border-radius:9px}
+ .wood-inset {border-width:1px;border-radius:5px}#board {aspect-ratio:1}
+ .board-foot {flex:0 0 22px;margin:4px 0 3px;font-size:9px;gap:5px;align-items:center}.board-foot button {font-size:9px;white-space:nowrap}#instruction {overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
+ #token-bag {display:none}.tools {flex:0 0 42px;gap:8px;align-items:center;margin:0}.reroll-button {padding:5px 8px;gap:8px;flex:1;min-width:0}.reroll-button b {font-size:11px}.reroll-button small {font-size:8px}.tool-icon {font-size:24px}.tool-cost {font-size:13px}
+ .bag-button {padding:8px;font-size:10px}.coin-purse {gap:2px 5px}.coin-purse b {font-size:22px}.coin-purse small {font-size:7px;margin-top:0}
+ body>footer {display:none}
+ .shop-dialog {max-height:96dvh;width:calc(100vw - 14px);max-width:none;margin:auto;border-radius:12px}
+ .shop-dialog #modal-content {max-height:96dvh;padding:13px}
+ .shop-heading h2 {font-size:23px}.shop-heading .eyebrow {font-size:8px}.shop-wallet {font-size:22px}
+ .trinket-card {grid-template-columns:35px 1fr;padding:9px 7px;gap:4px 7px;min-height:104px}.trinket-card>.trinket-die {width:34px;height:34px;border-radius:8px}.trinket-card>b {font-size:11px}.trinket-card>small {font-size:9px}.trinket-die b {font-size:21px}
+ .foil-pack {min-height:98px;padding:13px 8px;grid-template-columns:30px 1fr;gap:2px 6px}.foil-art {width:30px;height:30px}.foil-pack b {font-size:14px}.foil-pack small {font-size:9px}.foil-pack em {font-size:10px}.number-art {font-size:27px}
+}
+@media(max-width:620px) and (max-height:690px) {
+ .score-rail {flex-basis:106px}.tray {width:min(100%,calc(100dvh - 337px))}
+ #match-levels {display:none}#trinket-rack {height:64px;min-height:64px}.edition {display:none}
+}
+
+.converted-glyph { position:absolute;inset:8%;color:var(--pip);display:grid;place-items:center; }
+.converted-glyph svg { width:100%;height:100%; }
+.rarity { font-size:9px;letter-spacing:1px;color:var(--accent);font-weight:700; }

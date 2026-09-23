@@ -1,6 +1,6 @@
 import {
   act,
-  PACKS, canTakeToken, canBuyPack, TRINKETS, trinketValue,
+  PACKS, canTakeToken, canBuyPack, TRINKETS, trinketValue, trinketCost, TYPES,
   clone,
   legalActions,
   previewAction,
@@ -22,7 +22,7 @@ export function observe(state) {
   };
 }
 function visibleSwaps(view, cache) {
-  const key=JSON.stringify(view.board.map(d=>[d.n,d.special,d.mult]));
+  const key=JSON.stringify(view.board.map(d=>[d.n,d.special,d.mult,d.gold,d.shiny]));
   if(cache?.has(key)) return cache.get(key);
   const moves=legalActions(view.board).map((action) => ({
     action,
@@ -44,7 +44,7 @@ export function makePolicy(
       decisions++;
       if(view.status === "draft") {
         const candidates=view.draft.offers.flatMap((t,index)=>!view.draft.picks.includes(index)&&canTakeToken(view,t)?[{type:"choose_token",index,token:t}]:[]);
-        const priorities={"multi-3":12,"multi-4":8,"multi-5":5,"multi-6":3,number:6,bomb:5,row:4,column:4,coin:name==="spender"?7:3,color:2+view.config.rates.reduce((a,b)=>a+b,0)/20};
+        const priorities={"multi-3":12,"multi-4":8,"multi-5":5,"multi-6":3,number:6,bomb:5,row:4,column:4,twenty:3,wild:7,shiny:8,color:2+view.config.rates.reduce((a,b)=>a+b,0)/20};
         const pick=name==="random" ? candidates[Math.floor(random(privateRandom)*candidates.length)] : candidates.sort((a,b)=>priorities[b.token]-priorities[a.token])[0];
         if(!pick) throw Error("No eligible token choice");
         return {type:"choose_token",index:pick.index};
@@ -52,26 +52,25 @@ export function makePolicy(
       if(view.status === "roundwon") return {type:"visit_shop"};
       if(view.status === "shop") {
         const r=rulesFor(view.config);
+        const itemRank=t=>t.tier?16/(t.tier-2):({quad:30,convert:view.config.trinkets.includes('ones')?26:18,ones:view.config.trinkets.includes('convert')?25:14,cascade:12,rainbow:view.config.trinkets.includes('convert')?0:8,bigbomb:2+view.config.rates[TYPES.indexOf('bomb')]*4,widecolumn:2+view.config.rates[TYPES.indexOf('column')]*4,widerow:2+view.config.rates[TYPES.indexOf('row')]*4}[t.id]??0);
         const items=(view.shop.offers??[]).filter(id=>!view.shop.sold.includes(id)&&!view.config.trinkets.includes(id));
-        const preferred=items.map(id=>TRINKETS.find(t=>t.id===id)).sort((a,b)=>a.tier-b.tier || (a.stat==='pips'?-1:1));
-        // Three deliberately different economies: special-only control, match builder,
-        // and mixed builds. No sealed packs or future shop contents are observed.
-        const owned=view.config.trinkets.map(id=>TRINKETS.find(t=>t.id===id)).sort((a,b)=>b.tier-a.tier);
-        if(name!=='specialist' && owned.length>=r.trinketSlots && preferred.length && preferred[0].tier<owned[0].tier && view.coins+Math.floor(r.trinketCost/2)>=r.trinketCost)
+        const preferred=items.map(id=>TRINKETS.find(t=>t.id===id)).sort((a,b)=>itemRank(b)-itemRank(a));
+        const owned=view.config.trinkets.map(id=>TRINKETS.find(t=>t.id===id)).sort((a,b)=>itemRank(a)-itemRank(b));
+        if(name!=='specialist'&&owned.length>=r.trinketSlots&&preferred.length&&itemRank(preferred[0])>itemRank(owned[0])&&view.coins+Math.floor(trinketCost(owned[0],view.config)/2)>=trinketCost(preferred[0],view.config))
           return {type:'sell_trinket',id:owned[0].id};
-        const wantItem=name!=='specialist' && view.config.trinkets.length<r.trinketSlots && view.coins>=r.trinketCost && preferred.length;
-        if(wantItem && (name==='builder'||view.shop.bought||view.round%2===1||name==='random'&&random(privateRandom)<.5)) {
-          const item=name==='random'?preferred[Math.floor(random(privateRandom)*preferred.length)]:preferred[0];
-          return {type:'buy_trinket',id:item.id};
+        const affordable=preferred.filter(t=>view.coins>=trinketCost(t,view.config));
+        const wantItem=name!=='specialist'&&view.config.trinkets.length<r.trinketSlots&&affordable.length;
+        if(wantItem&&(name==='builder'||view.shop.bought||view.round%2===1||name==='random'&&random(privateRandom)<.5)) {
+          const item=name==='random'?affordable[Math.floor(random(privateRandom)*affordable.length)]:affordable[0];return {type:'buy_trinket',id:item.id};
         }
         const packs=PACKS.filter(p=>canBuyPack(view,p));
         if(packs.length) {
           const rate=view.config.rates.reduce((a,b)=>a+b,0);
-          const id=name==='builder'?'multi':name==='specialist'?'assorted':rate>=24?'multi':name==='spender'?'tricks':'assorted';
+          const id=name==='builder'?'multi':name==='specialist'?'assorted':view.round%2===1?'multi':'assorted';
           const pack=name==='random'?packs[Math.floor(random(privateRandom)*packs.length)]:packs.find(p=>p.id===id)??packs[0];
           return {type:'buy_pack',pack:pack.id};
         }
-        if(wantItem) return {type:'buy_trinket',id:preferred[0].id};
+        if(wantItem) return {type:'buy_trinket',id:affordable[0].id};
         return {type:"next_round"};
       }
       // Rules are fixed within this choice. Many special-heavy reroll samples
@@ -99,7 +98,7 @@ export function makePolicy(
           completion = 0;
         for (const seed of seeds) {
           const simulated = {
-            version: 6,
+            version: 7,
             seed: 0,
             rng: seed,
             nextId: Math.max(...view.board.map((d) => d.id)) + 1,

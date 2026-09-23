@@ -28,7 +28,7 @@ class CSSBoard {
     return Array.from(
       { length: 6 },
       (_, i) =>
-        `<div class="face face-${i}" style="--die:${dieColor(d)};--pip:${pipColor(d)}">${d.special ? `<span class="special-glyph">${iconMarkup(d.special)}</span>` : `<div class="pip-grid">${Array.from({ length: 9 }, (_, p) => `<i class="${dots[d.n].includes(p) ? "pip" : ""}"></i>`).join("")}</div>`}</div>`,
+        `<div class="face face-${i}" style="--die:${dieColor(d)};--pip:${pipColor(d)}">${d.converted ? `<span class="converted-glyph">${iconMarkup("convert")}</span>` : d.special ? `<span class="special-glyph">${iconMarkup(d.special)}</span>` : `<div class="pip-grid">${Array.from({ length: 9 }, (_, p) => `<i class="${dots[d.converted?6:d.n].includes(p) ? "pip" : ""}"></i>`).join("")}</div>`}</div>`,
     ).join("");
   }
 
@@ -59,7 +59,8 @@ class CSSBoard {
         };
         this.meshes.set(d.id, m);
       }
-      const key = `${d.n}-${d.special}-${d.mult}`;
+      m.el.classList.toggle("is-shiny",Boolean(d.shiny));m.el.classList.toggle("is-gold",Boolean(d.gold));
+      const key = `${d.n}-${d.special}-${d.mult}-${d.converted}`;
       if (m.key !== key) {
         m.cube.innerHTML = this.faces(d);
         m.key = key;

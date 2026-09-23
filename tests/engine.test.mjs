@@ -15,7 +15,7 @@ import {
   clone,
   nextRound,
 } from "../engine.mjs";
-const DEFAULTS={...CURRENT_DEFAULTS,rules:{...CURRENT_DEFAULTS.rules,sizeMult:[1,2,3,3]}};
+const DEFAULTS={...CURRENT_DEFAULTS,rules:{...CURRENT_DEFAULTS.rules,sizeMult:[1,2,3,3],specialPips:0,goldRate:0}};
 const newGame=(seed,config=DEFAULTS)=>createGame(seed,{...config,draft:false});
 const fixture = () =>
   Array.from({ length: 36 }, (_, i) => ({
@@ -58,18 +58,18 @@ test("all special shapes and clipped bombs", () => {
   assert.equal(effect(b, 14, "bomb").length, 9);
   assert.deepEqual(effect(b, 7, "column"), [1, 7, 13, 19, 25, 31]);
   b[2].special = "color";
-  b[13].special = "coin";
+  b[13].special = "twenty";
   b[30].special = "bomb";
   assert.deepEqual(effect(b, 2, "color"), [2, 13, 30]);
   assert.ok(effect(b, 2, "number").every((i) => b[i].n === b[2].n));
 });
-test("special chains trigger once and coin scores once", () => {
+test("special chains trigger once, including a collected Twenty", () => {
   const b = fixture();
   [0, 1, 2].forEach((i) => (b[i].n = 3));
   b[0].special = "column";
   b[6].special = "bomb";
   b[7].special = "column";
-  b[13].special = "coin";
+  b[13].special = "twenty";
   for (const d of b)
     if (d.special) {
       d.n = null;
@@ -78,12 +78,12 @@ test("special chains trigger once and coin scores once", () => {
   const w = wave(b, [], 0, DEFAULTS, [
     { index: 0, partner: 1, targetN: b[1].n },
   ]);
-  assert.equal(w.coins, 1);
+  assert.equal(w.coins, 0);
   assert.equal(w.activations.filter((a) => a.index === 6).length, 1);
   assert.equal(new Set(w.cleared).size, w.cleared.length);
   assert.equal(
     w.entries.flatMap((e) => e.indices).length,
-    w.cleared.filter((i) => !b[i].special).length,
+    w.cleared.filter((i) => !b[i].special || b[i].special==='twenty').length,
   );
 });
 test("falling preserves face, color, special, and identity", () => {
@@ -153,7 +153,7 @@ test("special sweep activates every special once without targeting hidden colour
   const b = fixture();
   [0, 1, 2].forEach((i) => (b[i].n = 3));
   b[0].special = "color";
-  b[17].special = "coin";
+  b[17].special = "twenty";
   b[35].special = "color";
   for (const d of b)
     if (d.special) {
@@ -163,8 +163,8 @@ test("special sweep activates every special once without targeting hidden colour
   const w = wave(b, [], 0, DEFAULTS, [
     { index: 0, partner: 1, targetN: b[1].n },
   ]);
-  assert.deepEqual(new Set(w.cleared), new Set([0, 17, 35, 11, 16, 23]));
-  assert.equal(w.coins, 1);
+  assert.deepEqual(new Set(w.cleared), new Set([0, 17, 35]));
+  assert.equal(w.coins, 0);
   assert.equal(w.activations.length, 3);
   assert.equal(w.entries.find((e) => e.kind === "blast").size, 2);
 });
@@ -206,13 +206,6 @@ test("number sweep targets the swapped pip value",()=>{
  assert.ok(f.cleared.filter(i=>i!==8).every(i=>f.before[i].n===n));
  assert.ok(f.cleared.includes(7)); // Naturally inside this effect.
  assert.equal(f.score,(f.cleared.length-1)*n*2);
-});
-test("coin scores its destination neighbours and awards one coin",()=>{
- const s=controlled(); special(s.board,7,"coin",4);
- const f=act(s,{type:"swap",a:7,b:1}).frames[0];
- assert.deepEqual(new Set(f.cleared),new Set([0,1,2,7]));
- assert.equal(f.coins,1);
- assert.equal(f.score,f.cleared.reduce((n,i)=>n+(f.before[i].n||0),0)*4);
 });
 test("overlapping special effects add both multipliers but count pips once", () => {
   const b = fixture();
@@ -267,7 +260,7 @@ test("old saves migrate without special pips and new saves resume exactly", () =
   s.version = 1;
   s.board[7].special = "bomb";
   const migrated = restoreGame(s);
-  assert.equal(migrated.version, 6);
+  assert.equal(migrated.version, 7);
   assert.equal(migrated.board[7].n, null);
   assert.equal(migrated.board[7].mult, 2);
   assert.deepEqual(restoreGame(JSON.parse(JSON.stringify(migrated))), migrated);

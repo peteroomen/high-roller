@@ -8,6 +8,7 @@ import "@fontsource/space-grotesk/latin-700.css";
 import {
   rulesFor,
   PACKS, canTakeToken, canBuyPack, packCost,
+  trinketCost, trinketDescription, applyBonus, pipValue,
   MATCH_TIERS, TRINKETS, tierLabel, trinketValue, matchMult, stageInfo,
   restoreGame,
   specialMultiplier,
@@ -31,7 +32,7 @@ const names = {
   color: "Special sweep",
   number: "Number sweep",
   bomb: "Bomb",
-  coin: "Coin",
+  twenty:"Twenty",wild:"Wild",shiny:"Shiny",
 };
 const descriptions = {
   column: "Clears its column",
@@ -39,7 +40,7 @@ const descriptions = {
   color: "Clears all special dice",
   number: "Clears the swapped number",
   bomb: "Clears a 3 \xD7 3 area",
-  coin: "Clears its four neighbours + 1 coin",
+  twenty:"20 pips · collect with a match swap or blast",wild:"Matches any number",shiny:"Normal die · ×1.5 Mult when matched",
 };
 let prefs = {
   sound: true,
@@ -69,14 +70,20 @@ let busy = false,
 const cells = [];
 let viewBoard = state.board;
 function trinketMarkup(t) {
-  return `<span class="trinket-die ${t.stat}"><b>${tierLabel(t.tier)}</b><small>${t.stat==='pips'?'PIP':'MULT'}</small></span>`;
+  const index=TRINKETS.indexOf(t),colours=['#dfc48b','#b39bc9','#8fb6a3','#d29791','#88a8c6','#bd9dc2'];
+  return `<span class="trinket-die ${t.stat??'charm'}" style="--piece:${colours[index%colours.length]};--angle:${[-7,5,-3,8][index%4]}deg">${t.tier?`<b>${tierLabel(t.tier)}</b><small>${t.stat==='pips'?'PIP':'MULT'}</small>`:iconMarkup(t.icon)}</span>`;
+}
+function trinketInfo(t) {
+  if(busy)return;
+  modal(`${closeButton}<div class="trinket-detail">${trinketMarkup(t)}<h2>${t.name}</h2><p>${trinketDescription(t,state.config)}</p></div><button class="primary" data-close>Back</button>`);
 }
 function inventory() {
   $('match-levels').innerHTML=MATCH_TIERS.map(t=>`<span title="Matches of ${tierLabel(t)} dice add ${matchMult(t,state.config)} Mult before bonuses"><b>${tierLabel(t)}</b><small>Lv ${(state.config.matchLevels[t]??0)+1}</small><em>+${matchMult(t,state.config)}×</em></span>`).join('');
-  $('trinket-rack').innerHTML=state.config.trinkets.length?state.config.trinkets.map(id=>{
-    const t=TRINKETS.find(t=>t.id===id);
-    return `<div class="owned-trinket" id="trinket-${id}" title="${t.name}: +${trinketValue(t,state.config)} ${t.stat} per ${tierLabel(t.tier)}-die match" aria-label="${t.name}, adds ${trinketValue(t,state.config)} ${t.stat}">${trinketMarkup(t)}<span>+${trinketValue(t,state.config)}<small>${t.stat}</small></span></div>`;
-  }).join(''):'<span class="empty-rack">TRINKETS · 0 / '+rulesFor(state.config).trinketSlots+'</span>';
+  $('trinket-rack').innerHTML=Array.from({length:rulesFor(state.config).trinketSlots},(_,i)=>{
+    const t=TRINKETS.find(t=>t.id===state.config.trinkets[i]);
+    return t?`<button class="owned-trinket" id="trinket-${t.id}" data-trinket-info="${t.id}" title="${trinketDescription(t,state.config)}" aria-label="${t.name}: ${trinketDescription(t,state.config)}">${trinketMarkup(t)}<span>${t.name}</span></button>`:`<div class="empty-slot"><span>+</span><small>TRINKET</small></div>`;
+  }).join('');
+  document.querySelectorAll('[data-trinket-info]').forEach(el=>el.onclick=()=>trinketInfo(TRINKETS.find(t=>t.id===el.dataset.trinketInfo)));
 }
 function tokenBag() {
   $("special-list").innerHTML=TYPES.map((t,i)=>`<div class="special-item"><span class="special-token">${iconMarkup(t)}</span><div><b>${names[t]} <em>${state.config.rates[i]}%</em></b><small>${descriptions[t]}</small></div></div>`).join("");
@@ -172,8 +179,11 @@ function renderCells(b) {
     const el = cells[i];
     el.setAttribute(
       "aria-label",
-      `Row ${Math.floor(i / 6) + 1}, column ${(i % 6) + 1}: ${d.special ? `${names[d.special]}, ×${specialMultiplier(d, state.config)}` : `${COLORS[d.n - 1]} ${d.n}`}`,
+      `Row ${Math.floor(i / 6) + 1}, column ${(i % 6) + 1}: ${d.special ? `${names[d.special]}${specialMultiplier(d,state.config)?`, +${specialMultiplier(d,state.config)} Mult`:""}` : `${COLORS[d.n - 1]} ${d.n}`}`,
     );
+    if(d.converted)el.setAttribute('aria-label',el.getAttribute('aria-label')+', six converted to one');
+    el.dataset.shiny=d.shiny?'true':'';el.dataset.gold=d.gold?'true':'';
+    if(d.shiny||d.gold)el.setAttribute('aria-label',el.getAttribute('aria-label')+(d.shiny?', shiny ×1.5':'')+(d.gold?', gold +1 coin':''));
     el.dataset.n = d.special ? "" : d.n;
     el.dataset.color = d.special ? "special" : d.n;
     el.dataset.special = d.special || "";
@@ -286,6 +296,12 @@ function outlineGroups(entries,active=-1) {
   });
   $("effects").replaceChildren(...nodes);
 }
+async function shakeTrinket(id) {
+  const piece=$('trinket-'+id);if(!piece)return;
+  piece.classList.add('triggering');
+  try{await animate(TIMING.shake,t=>{if(!prefs.reduced)piece.style.transform=`scale(${1+Math.sin(t*Math.PI)*.25}) rotate(${Math.sin(t*Math.PI*5)*8}deg)`;});}
+  finally{piece.style.transform='';piece.classList.remove('triggering');}
+}
 async function clearDice(frame) {
   const particles=[];
   for(const index of frame.cleared) for(let j=0;j<3;j++) {
@@ -360,12 +376,13 @@ async function perform(action) {
       for (const event of scoringPlan(frame)) {
         if(event.kind==='outline') {
           outlineGroups(event.entries);
+          for(const id of new Set(frame.upgrades??[]))await shakeTrinket(id);
           await animate(TIMING.outline);
         } else if(event.kind === "pip") {
           await board.wobble([event.index],frame.before,TIMING.shake*event.tempo);
           await fly([event.index], `+${event.value}`, "pips",()=>{
             collected+=event.value;$("pips").textContent=collected;
-            if(mult) $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(collected*mult)}`;
+            if(mult) $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(Math.floor(collected*mult))}`;
           },event.tempo,TIMING.hold);
         } else if(event.kind === 'group') {
           const {entry,contributions}=event;
@@ -382,11 +399,15 @@ async function perform(action) {
             await fly(part.source?'trinket-'+part.source:entry.affected,`+${part.value}`,target,()=>{
               if(target==='pips') {collected+=part.value;$('pips').textContent=collected;}
               else {mult+=part.value;$("mult").textContent=mult;}
-              $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(collected*mult)}`;
+              $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(Math.floor(collected*mult))}`;
             });
           }
-          $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(collected*mult)}`;
+          $("last-gain").textContent=`${fmt(collected)} × ${mult} = ${fmt(Math.floor(collected*mult))}`;
           await animate(TIMING.group);
+        } else if(event.kind === 'bonus') {
+          $('calc-label').textContent=event.label.toUpperCase();$('calc-detail').textContent=event.op==='multiply'?'Multiply Mult':'Add Mult';
+          if(event.source)await shakeTrinket(event.source);else if(event.indices)await board.wobble(event.indices,frame.before,TIMING.shake);
+          await fly(event.source?'trinket-'+event.source:event.indices??frame.cleared,`${event.op==='multiply'?'×':'+'}${event.value}`,'mult',()=>{mult=applyBonus(mult,event);$('mult').textContent=fmt(mult);$('last-gain').textContent=`${fmt(collected)} × ${fmt(mult)} = ${fmt(Math.floor(collected*mult))}`;});
         } else if(event.kind === 'clear') {
           outlineGroups(frame.entries);
           await clearDice(frame);
@@ -552,6 +573,7 @@ function modal(html) {
   paused = true;
   hud();
   $("modal-content").innerHTML = html;
+  $("modal").classList.toggle("shop-dialog",state.status==='shop');
   $("modal").showModal();
   $("modal-content")
     .querySelectorAll("[data-close]")
@@ -571,24 +593,26 @@ const closeButton =
   '<button class="close-modal" data-close aria-label="Close dialog">\xD7</button>';
 function rules() {
   const r=rulesFor(state.config);
-  modal(
-    `${closeButton}<div class="eyebrow">RULES</div><h2>How to play</h2><div class="rule">Swap neighbours. Match <strong>3+ identical numbers</strong> in a row or column. Each number has its own colour. Symbols do not form matches.</div><div class="rule"><strong>Pips \xD7 Mult = points.</strong><br>${MATCH_TIERS.map(t=>`${tierLabel(t)} dice: +${r.sizeMult[t-3]??r.sizeMult[2]} Mult`).join(" · ")}.<br>Matches of 1s or 2s add +1 Mult.</div><div class="rule">Each falling cascade adds <strong>+1 Mult</strong> for that wave. All pips and all Mult add together across the entire move. Multiply once after the last cascade.</div>${TYPES.map((t) => `<div class="rule"><strong>${SYMBOL[t]} ${names[t]}</strong> \u2014 ${descriptions[t]}. Swap with a neighbour to activate (1 move). Only its effect area scores. Other specials can trigger it.</div>`).join("")}<div class="rule">Specials have <strong>no pips</strong>. Each cleared numbered die adds its pips once. Each activated special adds its Mult (normally +2), plus its cascade bonus. Overlapping effects do not duplicate pips.</div><div class="rule">Number sweeps target the swapped number. Chained sweeps inherit that target; swapping two specials uses the most common number (ties go higher). Specials hit by another special activate once.</div><div class="rule">Spend <strong>3 coins</strong> to reroll a 2\xD72 area. No move cost. Start with one free token; buy foil packs between rounds to choose 3 of 5 tokens. Each special token adds ${r.tokenBoost} percentage points to its spawn rate, up to ${r.specialRateCap}% total specials. Numbered tokens level up a match tier. Trinket dice add pips or Mult once per matching group; specials do not trigger them. Four trinket slots; sell in the shop for half price. Clear three stages of three rounds.</div><div class="modal-actions"><button class="primary" data-close>Play</button><button class="secondary" id="rules-ledger">Score breakdown</button></div>`,
-  );
-  $("rules-ledger").onclick = ledger;
+  modal(`${closeButton}<div class="eyebrow">RULES</div><h2>Pips × Mult</h2><div class="rule">Match 3+ identical numbers. Wilds substitute for one number per wave: longest run wins, then higher number. Intersections of the same number merge.</div><div class="rule">All pips and Mult carry through the move. Matches add ${r.sizeMult.join('/')} Mult for 3/4/5/6+ dice, plus levels, +1 for low numbers and cascade depth. Group bonuses fly together. Trinkets score separately.</div><div class="rule">Shiny matches multiply running Mult by ×${r.shinyFactor} per shiny die after that wave’s additions. Loaded Die multiplies once at the end. Mult rounds to two decimals per multiplication; final points round down.</div><div class="rule">Gold dice keep their number and colour. ${r.goldRate}% of ordinary dice are gold; each matched gold die pays 1 coin. Blasts do not pay gold.</div>${TYPES.map(t=>`<div class="rule"><strong>${names[t]}</strong> — ${descriptions[t]}.</div>`).join('')}<div class="rule">Activated specials and cleared Wilds contribute ${r.specialPips} pips; Twenty contributes 20. No automatic inclusion of the swapped neighbour. Active specials add +2 Mult; Wild/Twenty add no separate Mult.</div><div class="rule">Each token adds ${r.tokenBoost} percentage point with no upgrade cap. If total rates exceed 100, spawn shares normalise proportionally. Stronger token types have rarer pack offers.</div><div class="rule">Shop packs reveal 3 tokens: choose 1. Each cleared round pays ${r.roundReward} + 1 coin per swap left. Four trinket slots. Reroll 2×2 costs ${r.rerollCost} coins and no swap.</div><button class="primary" data-close>Play</button>`);
 }
 function ledger() {
   const last=state.history.findLast(h=>h.action.type==='swap'||h.action.type==='reroll');
-  modal(`${closeButton}<div class="eyebrow">SCORE BREAKDOWN</div><h2>Last move</h2>${last?`<p class="ledger-total">${last.pips ?? '—'} pips × ${last.mult ?? '—'} Mult = <strong>${fmt(last.score)}</strong></p><p>${last.waves} waves · pips count once, Mult adds</p>${last.entries.map(e=>`<div class="ledger-entry"><div>${e.label}<small>${e.size} ${e.kind==='blast'?'special':'size'}${e.upgrade?` + ${e.upgrade} level`:''}${e.low?` + ${e.low} low pips`:''}${e.cascade?` + ${e.cascade} cascade`:''}</small></div><b>+${e.mult} Mult${e.pipBonus?`<small>+${e.pipBonus} bonus pips</small>`:""}</b></div>${(e.trinkets??[]).map(t=>`<div class="ledger-trinket">${t.name} · +${t.value} ${t.stat}</div>`).join("")}`).join('')}`:'<p>Make a move to see its contributions.</p>'}<button class="primary" data-close>Back</button>`);
+  modal(`${closeButton}<div class="eyebrow">SCORE BREAKDOWN</div><h2>Last move</h2>${last?`<p class="ledger-total">${last.pips ?? '—'} pips × ${last.mult ?? '—'} Mult = <strong>${fmt(last.score)}</strong></p><p>${last.waves} waves · pips count once, Mult adds</p>${last.entries.map(e=>`<div class="ledger-entry"><div>${e.label}<small>${e.size} ${e.kind==='blast'?'special':'size'}${e.upgrade?` + ${e.upgrade} level`:''}${e.low?` + ${e.low} low pips`:''}${e.cascade?` + ${e.cascade} cascade`:''}</small></div><b>+${e.mult} Mult${e.pipBonus?`<small>+${e.pipBonus} bonus pips</small>`:""}</b></div>${(e.trinkets??[]).map(t=>`<div class="ledger-trinket">${t.name} · +${t.value} ${t.stat}</div>`).join("")}`).join('')}${(last.bonuses??[]).map(b=>`<div class="ledger-entry"><span>${b.label}</span><b>${b.op==='multiply'?'×':'+'}${b.value} Mult</b></div>`).join('')}`:'<p>Make a move to see its contributions.</p>'}<button class="primary" data-close>Back</button>`);
+}
+function bagInfo() {
+ const total=state.config.rates.reduce((a,b)=>a+b,0),den=Math.max(100,total);
+ modal(`${closeButton}<div class="eyebrow">YOUR DICE</div><h2>Dice bag</h2>${TYPES.map((t,i)=>`<div class="ledger-entry"><span>${names[t]}<small>${descriptions[t]}</small></span><b>${(state.config.rates[i]/den*100).toFixed(1)}%</b></div>`).join('')}<p>${rulesFor(state.config).goldRate}% gold on ordinary dice</p><button class="primary" data-close>Back</button>`);
 }
 function pauseMenu() {
   modal(
-    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 05</p>`,
+    `${closeButton}<div class="eyebrow">PAUSED</div><h2>Pause</h2><p>Your run is saved on this device.</p><div class="settings"><label>Sound<input id="pref-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label>Fast animations<input id="pref-fast" type="checkbox" ${prefs.fast ? "checked" : ""}></label><label>Reduced motion<input id="pref-reduced" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" data-close>Keep playing</button><button class="secondary" id="restart">New run</button><button class="secondary" id="pause-lab">Test bench</button><button class="secondary" id="pause-bag">Dice bag</button></div><p style="font-size:11px">Seed ${state.seed} \xB7 Playtest 06</p>`,
   );
   for (const k of ["sound", "fast", "reduced"])
     $("pref-" + k).onchange = (e) => {
       prefs[k] = e.target.checked;
       preferences();
     };
+  $('pause-lab').onclick=()=>{if(!busy)lab();};$('pause-bag').onclick=bagInfo;
   $("restart").onclick = () => {
     modal(
       `${closeButton}<h2>Start fresh?</h2><p>This replaces your saved run.</p><div class="modal-actions"><button class="primary" id="confirm-restart">New run</button><button class="secondary" data-close>Keep this run</button></div>`,
@@ -655,23 +679,24 @@ function progressionScreen() {
   const r=rulesFor(state.config);
   if(state.status==='draft') {
     const d=state.draft,starter=d.kind==='starter',remaining=d.limit-d.picks.length,multi=d.offers[0]?.startsWith('multi-');
-    modal(`<div class="eyebrow">${starter?'YOUR FIRST TOKEN':d.name.toUpperCase()}</div><h2>${starter?'Pick your starter':`Choose ${remaining} more`}</h2><p class="draft-note">${starter?'Choose 1 of 3 · free':`Keep ${d.limit} of ${d.offers.length} tokens`} · ${multi?'level up match Mult':`+${r.tokenBoost}% spawn chance each`}</p><div class="token-choices ${starter?'starter':''} ${!starter&&!d.picks.length?'pack-opening':''}">${d.offers.map((t,i)=>{
+    modal(`<div class="eyebrow">${starter?'YOUR FIRST TOKEN':d.name.toUpperCase()}</div><h2>${starter?'Pick your starter':'Choose one'}</h2><p class="draft-note">${starter?'Choose 1 of 3 · free':`Keep ${d.limit} of ${d.offers.length} tokens`} · ${multi?'level up match Mult':`+${r.tokenBoost}% spawn chance each`}</p><div class="token-choices ${starter?'starter':''} ${!starter&&!d.picks.length?'pack-opening':''}">${d.offers.map((t,i)=>{
       const tier=Number(t.slice(6)),picked=d.picks.includes(i),name=multi?`${tierLabel(tier)}-match`:names[t];
-      return `<button class="token-choice ${picked?'picked':''}" data-token="${i}" ${picked||!canTakeToken(state,t)?'disabled':''} aria-label="Choose ${name} token"><span class="token-coin ${multi?'number-token':''}">${multi?tierLabel(tier):iconMarkup(t)}</span><b>${name}</b><small>${multi?`Level ${(state.config.matchLevels[tier]??0)+1} · +${r.levelBoost[tier-3]} Mult per level`:descriptions[t]}</small><em>${picked?'✓ Added':multi?`+${matchMult(tier,state.config)} → +${matchMult(tier,state.config)+r.levelBoost[tier-3]} Mult`:`${state.config.rates[TYPES.indexOf(t)]}% → ${state.config.rates[TYPES.indexOf(t)]+r.tokenBoost}%`}</em></button>`;
+      return `<button class="token-choice ${picked?'picked':''}" data-token="${i}" ${picked||!canTakeToken(state,t)?'disabled':''} aria-label="Choose ${name} token"><span class="token-coin ${multi?'number-token':''}">${multi?tierLabel(tier):iconMarkup(t)}</span><b>${name}</b>${multi?'':`<span class="rarity">${r.specialWeights[t]>=4?'COMMON':r.specialWeights[t]>=2?'UNCOMMON':'RARE'}</span>`}<small>${multi?`Level ${(state.config.matchLevels[tier]??0)+1} · +${r.levelBoost[tier-3]} Mult per level`:descriptions[t]}</small><em>${picked?'✓ Added':multi?`+${matchMult(tier,state.config)} → +${matchMult(tier,state.config)+r.levelBoost[tier-3]} Mult`:`${state.config.rates[TYPES.indexOf(t)]}% → ${state.config.rates[TYPES.indexOf(t)]+r.tokenBoost}%`}</em></button>`;
     }).join('')}</div><div class="pack-footer">${starter?'Every other special starts at 0%.':`${d.picks.length} / ${d.limit} kept · tokens last the whole run`}</div>`);
     document.querySelectorAll('[data-token]').forEach(el=>el.onclick=()=>progress({type:'choose_token',index:Number(el.dataset.token)}));
   } else if(state.status==='shop') {
     const next=stageInfo(state.round+1,state.config),nextStage=next.leg===1;
-    modal(`<div class="shop-heading"><div><div class="eyebrow">ROUND ${state.round+1} CLEARED · +${state.shop.reward} ●</div><h2>Table shop</h2></div><span class="shop-wallet">● ${state.coins}</span></div><p class="draft-note">One pack · pick three tokens</p><div class="foil-shelf">${PACKS.map((pack,i)=>`<button class="foil-pack foil-${i}" data-pack="${pack.id}" ${!canBuyPack(state,pack)?'disabled':''} aria-label="Open ${pack.name} pack for ${packCost(pack,state.config)} coins"><span class="foil-seal">HIGH ROLLER</span><span class="foil-art ${pack.kind==='multi'?'number-art':''}">${pack.kind==='multi'?'3⁺':iconMarkup(pack.id==='lines'?'row':pack.id==='tricks'?'bomb':'number')}</span><b>${pack.name}</b><small>${pack.note}</small><span class="pack-count">5 TOKENS · PICK 3</span><em>${state.shop.bought?'SOLD OUT':`${packCost(pack,state.config)} ●`}</em></button>`).join('')}</div><div class="shop-section"><b>Trinkets</b><small>${state.config.trinkets.length} / ${r.trinketSlots} slots</small></div><div class="trinket-shelf">${(state.shop.offers??[]).map(id=>{
-      const t=TRINKETS.find(t=>t.id===id),sold=state.shop.sold.includes(id);
-      return `<button class="trinket-card" data-buy-trinket="${id}" ${sold||state.config.trinkets.includes(id)||state.coins<r.trinketCost||state.config.trinkets.length>=r.trinketSlots?'disabled':''} aria-label="Buy ${t.name} for ${r.trinketCost} coins">${trinketMarkup(t)}<b>${t.name}</b><small>+${trinketValue(t,state.config)} ${t.stat}<br>per ${tierLabel(t.tier)}-match</small><em>${sold?'SOLD':`${r.trinketCost} ●`}</em></button>`;
-    }).join('')||'<small>No trinkets available</small>'}</div>${state.config.trinkets.length?`<div class="shop-section"><b>Your trinkets</b><small>Sell for ${Math.floor(r.trinketCost/2)} ●</small></div><div class="owned-shelf">${state.config.trinkets.map(id=>{const t=TRINKETS.find(t=>t.id===id);return `<button class="sell-trinket" data-sell-trinket="${id}" aria-label="Sell ${t.name}">${trinketMarkup(t)}<span>${t.name}<small>Sell · ${Math.floor(r.trinketCost/2)} ●</small></span></button>`;}).join('')}</div>`:''}<button class="primary shop-next" id="next-shop-round">${nextStage?`Stage ${next.number} · ${next.name}`:`Round ${state.round+2}`} · ${fmt(state.config.targets[state.round+1])} →</button>`);
+    modal(`<div class="shop-heading"><div><div class="eyebrow">ROUND ${state.round+1} · +${state.shop.reward} ●</div><h2>Table shop</h2></div><span class="shop-wallet">● ${state.coins}</span></div><div class="shop-scroll"><div class="shop-section"><b>Trinkets</b><small>${state.config.trinkets.length} / ${r.trinketSlots} slots</small></div><div class="trinket-shelf">${(state.shop.offers??[]).map(id=>{
+      const t=TRINKETS.find(t=>t.id===id),sold=state.shop.sold.includes(id),cost=trinketCost(t,state.config);
+      return `<button class="trinket-card" data-buy-trinket="${id}" ${sold||state.config.trinkets.includes(id)||state.coins<cost||state.config.trinkets.length>=r.trinketSlots?'disabled':''} aria-label="Buy ${t.name} for ${cost} coins">${trinketMarkup(t)}<b>${t.name}</b><small>${trinketDescription(t,state.config)}</small><em>${sold?'SOLD':`${cost} ●`}</em></button>`;
+    }).join('')||'<small>No trinkets available</small>'}</div><div class="shop-section"><b>Token packs</b><small>Choose 1 of 3</small></div><div class="foil-shelf">${PACKS.map((pack,i)=>`<button class="foil-pack foil-${i}" data-pack="${pack.id}" ${!canBuyPack(state,pack)?'disabled':''} aria-label="Open ${pack.name} pack for ${packCost(pack,state.config)} coins"><span class="foil-art ${pack.kind==='multi'?'number-art':''}">${pack.kind==='multi'?'3⁺':iconMarkup('wild')}</span><b>${pack.name}</b><small>${pack.note}</small><em>${state.shop.bought?'SOLD OUT':`${packCost(pack,state.config)} ●`}</em></button>`).join('')}</div>${state.config.trinkets.length?`<div class="shop-section"><b>Your trinkets</b><small>Tap to sell</small></div><div class="owned-shelf">${state.config.trinkets.map(id=>{const t=TRINKETS.find(t=>t.id===id);return `<button class="sell-trinket" data-sell-trinket="${id}" aria-label="Sell ${t.name}">${trinketMarkup(t)}<span>${t.name}<small>${Math.floor(trinketCost(t,state.config)/2)} ●</small></span></button>`;}).join('')}</div>`:''}</div><button class="primary shop-next" id="next-shop-round">${nextStage?`Stage ${next.number} · ${next.name}`:`Round ${state.round+2}`} · ${fmt(state.config.targets[state.round+1])} →</button>`);
     document.querySelectorAll('[data-pack]').forEach(el=>el.onclick=()=>progress({type:'buy_pack',pack:el.dataset.pack}));
     document.querySelectorAll('[data-buy-trinket]').forEach(el=>el.onclick=()=>progress({type:'buy_trinket',id:el.dataset.buyTrinket}));
     document.querySelectorAll('[data-sell-trinket]').forEach(el=>el.onclick=()=>progress({type:'sell_trinket',id:el.dataset.sellTrinket}));
     $('next-shop-round').onclick=()=>progress({type:'next_round'});
   }
 }
+
 function lab() {
   modal(
     `${closeButton}<div class="eyebrow">PLAYTEST CONTROLS</div><h2>Test bench.</h2><p>Changes start a fresh seeded run. Each special has its own spawn chance.</p><div class="settings"><label>Seed<input id="seed" class="wide" type="number" min="0" max="4294967295" value="${state.seed}"></label><label>Moves per round<input id="lab-moves" type="number" min="1" max="30" value="${state.config.moves}"></label>${state.config.targets.map((n, i) => `<label>Round ${i + 1} target<input id="target-${i}" type="number" min="1" max="999999" value="${n}"></label>`).join("")}${TYPES.map((t, i) => `<label>${names[t]} %<input id="rate-${i}" type="number" min="0" max="20" step="1" value="0"></label>`).join("")}${MATCH_TIERS.map(t=>`<label>${tierLabel(t)}-match starting level<input id="lab-level-${t}" type="number" min="1" max="99" value="1"></label>`).join('')}${TRINKETS.map(t=>`<label>Start with ${t.name}<input id="lab-trinket-${t.id}" type="checkbox"></label>`).join('')}<label>1s & 2s get +1 Mult<input id="low-bonus" type="checkbox" ${state.config.lowBonus ? "checked" : ""}></label></div><div class="modal-actions"><button class="primary" id="apply-test">Start test run</button><button class="secondary" id="reset-test">Defaults</button></div><div class="modal-actions"><button class="secondary" id="export-run">Export run log</button></div>`,
@@ -691,7 +716,6 @@ function lab() {
       moves > 30 ||
       targets.some((n) => !Number.isInteger(n) || n < 1 || n > 999999) ||
       rates.some((n) => !Number.isFinite(n) || n < 0 || n > 20) ||
-      rates.reduce((a,b)=>a+b,0)>100 ||
       !Number.isInteger(seed) ||
       seed < 0 ||
       seed > 4294967295
@@ -704,7 +728,7 @@ function lab() {
   $("reset-test").onclick = () => startNew(Date.now() >>> 0, DEFAULTS);
   $("export-run").onclick = () => {
     const blob = new Blob(
-        [JSON.stringify({ build: "0.5.0", ...state }, null, 2)],
+        [JSON.stringify({ build: "0.6.0", ...state }, null, 2)],
         { type: "application/json" },
       ),
       url = URL.createObjectURL(blob),
@@ -715,6 +739,7 @@ function lab() {
     setTimeout(() => URL.revokeObjectURL(url), 1e3);
   };
 }
+$('bag').onclick=bagInfo;
 $("info").onclick = rules;
 $("pause").onclick = () =>
   state.status !== "playing" && !busy ? endRound() : pauseMenu();

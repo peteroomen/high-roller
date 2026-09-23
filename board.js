@@ -11,7 +11,7 @@ const PIP_HEX = [
   "#c77f9e",
 ];
 const SPECIAL_HEX = Object.fromEntries(
-  ["column", "color", "number", "bomb", "coin", "row"].map((t) => [t, "#eee6d5"]),
+  ["column", "color", "number", "bomb", "twenty", "row", "wild", "shiny"].map((t) => [t, "#eee6d5"]),
 );
 const dieColor = (d) => (d.special ? SPECIAL_HEX[d.special] : PIP_HEX[d.n - 1]);
 const pipColor = (d) =>
@@ -21,10 +21,21 @@ const SYMBOL = {
   color: "\u25C8",
   number: "#",
   bomb: "\u2739",
-  coin: "$",
+  twenty:"20",wild:"✦",shiny:"✧",
   row: "↔",
 };
 const ICON_PATHS = {
+ twenty:"M14 31C14 13 44 13 44 32C44 45 16 56 14 78H44 M71 20C50 20 50 80 71 80C92 80 92 20 71 20Z",
+ wild:"M50 9L60 39L91 50L60 61L50 91L40 61L9 50L40 39Z",
+ shiny:"M50 10L60 39L88 50L60 61L50 90L40 61L12 50L40 39Z M80 10V28 M71 19H89",
+ convert:"M10 25C10 12 34 12 34 28V39C34 52 10 52 10 39C10 26 34 26 34 39 M42 50H64 M55 41L64 50L55 59 M76 57L87 48V87 M76 87H96",
+ cascade:"M15 18H48V44H77V77 M61 63L77 80L93 63 M11 53H32V80",
+ ones:"M15 29L31 17V77 M14 77H47 M64 40V73 M48 57H82",
+ quad:"M12 31L39 65 M39 31L12 65 M77 20L52 58H88 M77 20V80",
+ rainbow:"M9 79C9 5 91 5 91 79 M25 79C25 26 75 26 75 79 M41 79C41 48 59 48 59 79",
+ bigbomb:"M15 15H85V85H15Z M38 16V84 M62 16V84 M16 38H84 M16 62H84",
+ widecolumn:"M24 14V86 M50 14V86 M76 14V86 M14 26L24 14L34 26 M40 26L50 14L60 26 M66 26L76 14L86 26",
+ widerow:"M14 24H86 M14 50H86 M14 76H86 M26 14L14 24L26 34 M26 40L14 50L26 60 M26 66L14 76L26 86",
  column:"M50 12V88 M28 34L50 12L72 34 M28 66L50 88L72 66",
  row:"M12 50H88 M34 28L12 50L34 72 M66 28L88 50L66 72",
  color:"M50 8L92 50L50 92L8 50Z M50 28L72 50L50 72L28 50Z",
@@ -32,7 +43,9 @@ const ICON_PATHS = {
  bomb:"M50 6L60 26L80 16L77 38L98 43L81 58L90 79L67 78L59 98L45 81L24 91L25 68L4 58L23 45L14 24L37 26Z",
  coin:"M72 29C63 13 26 17 26 36C26 58 74 42 74 65C74 85 34 89 24 72 M50 8V92"
 };
-const iconMarkup = type => `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="${ICON_PATHS[type]}" fill="${type==='bomb'?'currentColor':'none'}" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const SCRAWL = "M35 37L57 21L49 80 M31 80L69 76 M54 26L47 72";
+const conversionMarkup = () => `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">${[24,76].flatMap(x=>[23,50,77].map(y=>`<circle cx="${x}" cy="${y}" r="8" fill="currentColor"/>`)).join('')}<path d="${SCRAWL}" fill="none" stroke="#b92835" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const iconMarkup = type => type==='convert'?conversionMarkup(): `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="${ICON_PATHS[type]}" fill="${type==='bomb'?'currentColor':'none'}" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const DOTS = {
   1: [[0, 0]],
   2: [
@@ -119,8 +132,8 @@ class Board {
     this.renderer.setSize(r.width, r.width, false);
     this.render();
   }
-  material(body, ink, n, special, mult = 2) {
-    const key = [body, ink, n, special, mult].join("-");
+  material(body, ink, n, special, mult = 2, shiny=false, gold=false, converted=false) {
+    const key = [body, ink, n, special, mult, shiny, gold, converted].join("-");
     if (this.materials.has(key)) return this.materials.get(key);
     const c = document.createElement("canvas");
     c.width = c.height = 160;
@@ -132,15 +145,25 @@ class Board {
     grad.addColorStop(1, "#0000000b");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 160, 160);
+    // Cream bevel catches the light like the CSS dice's inset highlight.
+    ctx.beginPath();ctx.roundRect(5,5,150,150,22);
+    ctx.strokeStyle='#fff5dc88';ctx.lineWidth=5;ctx.stroke();
+    ctx.beginPath();ctx.roundRect(9,9,142,142,19);
+    ctx.strokeStyle='#fff9e32b';ctx.lineWidth=2;ctx.stroke();
     ctx.fillStyle = "#493c2d12";
     for(let i=0;i<210;i++) ctx.fillRect((i*47)%160,(i*73+Math.floor(i/7)*11)%160,1.3,1.3);
     ctx.fillStyle = ink;
     const scale = special ? 31 : 34,
       cy = special ? 72 : 80;
-    for (const [x, y] of special ? [] : DOTS[n] || []) {
+    for (const [x, y] of special ? [] : DOTS[converted?6:n] || []) {
       ctx.beginPath();
       ctx.arc(80 + x * scale, cy - y * scale, 10, 0, Math.PI * 2);
       ctx.fill();
+    }
+    if(converted) {
+      ctx.save();ctx.translate(0,0);ctx.scale(1.6,1.6);
+      ctx.strokeStyle='#b92835';ctx.lineWidth=9;ctx.lineCap='round';ctx.lineJoin='round';
+      ctx.stroke(new Path2D(SCRAWL));ctx.restore();
     }
     if (special) {
       ctx.save();ctx.translate(25,25);ctx.scale(1.1,1.1);
@@ -149,19 +172,21 @@ class Board {
       if(special==='bomb')ctx.fill(path);else ctx.stroke(path);
       ctx.restore();
     }
+    if(gold) {ctx.strokeStyle='#ffe09b';ctx.lineWidth=10;ctx.strokeRect(9,9,142,142);ctx.fillStyle='#ffdf83';ctx.font='bold 21px sans-serif';ctx.fillText('$',125,145);}
+    if(shiny) {ctx.strokeStyle='#fff6ff';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(131,10);ctx.lineTo(131,32);ctx.moveTo(120,21);ctx.lineTo(142,21);ctx.stroke();}
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.MeshStandardMaterial({
       map: tex,
-      roughness: 0.68,
-      metalness: 0.01,
+      roughness: shiny?.18:gold?.3:.68,
+      metalness: gold?.55:shiny?.35:.01,
     });
     this.materials.set(key, mat);
     return mat;
   }
   mats(d) {
     return Array.from({ length: 6 }, () =>
-      this.material(dieColor(d), pipColor(d), d.n, d.special, d.mult),
+      this.material(dieColor(d), pipColor(d), d.n, d.special, d.mult, d.shiny, d.gold, d.converted),
     );
   }
   render() {

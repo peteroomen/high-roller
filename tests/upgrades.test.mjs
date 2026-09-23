@@ -19,10 +19,10 @@ test('every tier token and both trinkets score on first waves and cascades; larg
  }
 });
 test('unmatched tiers and special blast footprints never trigger match upgrades or trinkets',()=>{
- const config={...DEFAULTS,matchLevels:{3:9,4:9},trinkets:TRINKETS.map(t=>t.id)};
+ const config={...DEFAULTS,matchLevels:{3:9,4:9},trinkets:TRINKETS.filter(t=>t.tier).map(t=>t.id)};
  const b=board();b[0]={id:0,n:null,special:'column',mult:2};
  const f=wave(b,[],0,config,[{index:0,targetN:5}]);
- assert.equal(f.pips,25);assert.equal(f.mult,2);assert.equal(f.entries[0].trinkets,undefined);
+ assert.equal(f.pips,35);assert.equal(f.mult,2);assert.equal(f.entries[0].trinkets,undefined);
  const g=wave(board(),[[0,1,2]],0,{...DEFAULTS,matchLevels:{4:9},trinkets:['pips-4','mult-4']});
  assert.equal(g.pips,15);assert.equal(g.mult,2);
 });
@@ -30,12 +30,12 @@ test('each separate group earns its own trinket bonuses; no pip ownership duplic
  const b=board();b[6]={id:6,n:null,special:'column',mult:2};
  const f=wave(b,[[0,1,2],[12,13,14]],1,{...DEFAULTS,trinkets:['pips-3','mult-3']},[{index:6,targetN:5}]);
  assert.equal(f.entries.filter(e=>e.kind==='match').flatMap(e=>e.trinkets).length,4);
- assert.equal(f.pips,f.cleared.reduce((n,i)=>n+(b[i].n??0),0)+2*RULES.trinketPips[0]);
+ assert.equal(f.pips,f.cleared.reduce((n,i)=>n+(b[i].n??RULES.specialPips),0)+2*RULES.trinketPips[0]);
  assert.equal(new Set(f.entries.flatMap(e=>e.indices)).size,f.entries.flatMap(e=>e.indices).length);
 });
 test('whole moves conserve both counters and score with tier levels and trinkets',()=>{
  for(let seed=0;seed<20;seed++) {
-  const s=newGame(seed,{...DEFAULTS,draft:false,targets:[999999],matchLevels:{3:2,4:1,5:1,6:1},trinkets:TRINKETS.map(t=>t.id)});
+  const s=newGame(seed,{...DEFAULTS,draft:false,targets:[999999],matchLevels:{3:2,4:1,5:1,6:1},trinkets:TRINKETS.filter(t=>t.tier).map(t=>t.id)});
   const out=act(s,legalActions(s.board)[0]);
   let pips=0,mult=0;
   for(const f of out.frames) {
@@ -63,10 +63,9 @@ test('builder and mixed policies exercise upgrades, purchases, triggers, economy
  }
 });
 
-test('a legacy draft above the new special cap remains pickable after migration',()=>{
- const old=newGame(9);old.version=5;old.status='draft';old.config.rates=[20,20,20,10,0,0];old.config.rules={tokenBoost:5,specialRateCap:90};
+test('legacy draft migrates to a single remaining pick and replaces Coin with Twenty',()=>{
+ const old=newGame(9);old.version=6;old.status='draft';old.config.rates=[20,20,20,10,5,0];old.config.rules={tokenBoost:2,specialRateCap:30};
  old.draft={kind:'pack',name:'Legacy pack',offers:['column','bomb','coin'],picks:[],limit:3};old.shop={bought:true,reward:5};
- let s=restoreGame(old);
- for(const index of [0,1,2])s=act(s,{type:'choose_token',index}).state;
- assert.equal(s.status,'shop');assert.equal(s.config.rates.reduce((a,b)=>a+b,0),85);
+ let s=restoreGame(old);assert.deepEqual(s.draft.offers,['column','bomb','twenty']);assert.equal(s.config.rates[4],0);
+ s=act(s,{type:'choose_token',index:0}).state;assert.equal(s.status,'shop');assert.equal(s.config.rates[0],21);
 });

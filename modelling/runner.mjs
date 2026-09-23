@@ -15,7 +15,7 @@ const hash = (x) =>
   createHash("sha256").update(JSON.stringify(x)).digest("hex");
 export function fingerprint(s) {
   return hash({
-    rng: s.rng,
+    rng: s.rng,faceConversions:s.faceConversions,
     nextId: s.nextId,
     round: s.round,
     score: s.score,
@@ -53,6 +53,7 @@ export function runOne({
     multiPicks:Object.fromEntries(MATCH_TIERS.map(t=>[t,0])),
     trinketTriggers:Object.fromEntries(TRINKETS.map(t=>[t.id,0])),
     trinketBonuses:Object.fromEntries(TRINKETS.map(t=>[t.id,0])),
+    goldSpawns:0,goldMatches:0,shinyMatches:0,wildClears:0,
     trinketFlights:0,
     pipFlights: 0,
     multFlights: 0,
@@ -68,7 +69,7 @@ export function runOne({
     shuffles: 0,
     cappedResolutions: 0,
     totalScore: 0,
-    points: { matchBase: 0, blastBase: 0, cascade: 0, low: 0, upgrades:0, trinketMult:0, trinketPips:0 },
+    points: { matchBase: 0, blastBase: 0, cascade: 0, low: 0, upgrades:0, trinketMult:0, trinketPips:0, globalAdd:0, multipliers:0 },
     specialSwapActions: 0,
     specialScore: counts(),
     specialSpawns: counts(),
@@ -90,6 +91,7 @@ export function runOne({
       if (!seen.has(d.id)) {
         seen.add(d.id);
         if (d.special) m.specialSpawns[d.special]++;
+        if(d.shiny)m.specialSpawns.shiny++;if(d.gold)m.goldSpawns++;
       }
   }
   register(s.board);
@@ -146,7 +148,12 @@ export function runOne({
     // This fixed ordering conserves score without double-counting interactions.
     const bonusPips=out.summary.entries.reduce((n,e)=>n+(e.pipBonus??0),0);
     const dicePips=out.summary.pips-bonusPips;
-    m.points.trinketPips+=bonusPips*out.summary.mult;
+    const rawMult=out.summary.rawMult??0;
+    m.points.trinketPips+=bonusPips*rawMult;
+    const additive=(out.summary.bonuses??[]).filter(b=>b.op==='add').reduce((n,b)=>n+b.value,0);
+    m.points.globalAdd+=dicePips*additive;
+    m.points.multipliers+=out.summary.score-out.summary.pips*rawMult;
+    m.roundRewards+=out.summary.roundPayout??0;
     m.coinsEarned += out.summary.coinsEarned;
     m.coinsSpent += out.summary.coinsSpent;
     if (action.type === "reroll") {
@@ -158,6 +165,9 @@ export function runOne({
     if(s.status === "playing") {m.waveCounts.push(out.frames.length);m.scoresPerAction.push(out.summary.score);}
     for (const f of out.frames) {
       for(const [key,value] of Object.entries(pacing(f))) m[key]+=value;
+      m.goldMatches+=f.goldMatches??0;m.shinyMatches+=f.shinyMatches??0;m.wildClears+=f.wildClears??0;
+      for(const b of f.bonuses??[])if(b.source){m.trinketTriggers[b.source]++;m.trinketBonuses[b.source]+=b.value;}
+      for(const id of f.upgrades??[])m.trinketTriggers[id]++;
       register(f.before);
       register(f.after);
       m.depthHistogram[f.depth + 1] = (m.depthHistogram[f.depth + 1] || 0) + 1;
@@ -180,7 +190,7 @@ export function runOne({
         m.points.cascade += dicePips * e.cascade;
         m.points.low += dicePips * e.low;
         if (e.kind === "match") {
-          const n = f.before[e.affected[0]].n;
+          const n = e.face??f.before[e.affected[0]].n;
           m.naturalByPip[n - 1]++;
           m.naturalScoreByPip[n - 1] += e.score;
         }
@@ -209,6 +219,7 @@ export function runOne({
       });
   }
   m.status ??= s.status;
+  m.trinketTriggers.convert=s.faceConversions??0;
   m.totalScore = s.total;
   m.coinsEnding = s.coins;
   m.finalHash = fingerprint(s);
@@ -311,6 +322,7 @@ export function aggregate(runs, roundCount = runs[0]?.roundCount ?? DEFAULTS.tar
     }),
     score: quantiles(runs.map((r) => r.totalScore)),
     actions: quantiles(runs.map((r) => r.actions)),
+    goldSpawns:sum("goldSpawns"),goldMatches:sum("goldMatches"),shinyMatches:sum("shinyMatches"),wildClears:sum("wildClears"),
     trinketPurchases:sum('trinketPurchases'),trinketSales:sum('trinketSales'),trinketSpending:sum('trinketSpending'),saleIncome:sum('saleIncome'),
     multiPicks:merge('multiPicks'),trinketTriggers:merge('trinketTriggers'),trinketBonuses:merge('trinketBonuses'),trinketFlights:sum('trinketFlights'),
     pipFlights: sum("pipFlights"),

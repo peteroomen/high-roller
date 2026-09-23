@@ -1,45 +1,19 @@
-import { DEFAULTS, clone } from "../engine.mjs";
+import { DEFAULTS, clone, TRINKETS, TYPES } from "../engine.mjs";
 export const SCENARIOS = {
-  baseline: {},
-  "no-upgrades":{disableUpgrades:true},
-  "no-trinkets":{disableTrinkets:true},
-  "boosts-half":{rules:{levelBoost:[1,2,3,4],trinketPips:[8,16,28,44],trinketMult:[1,2,4,6]}},
-  "boosts-double":{rules:{levelBoost:[4,8,12,16],trinketPips:[32,64,112,176],trinketMult:[4,8,16,24]}},
-  "trinket-cost-3":{rules:{trinketCost:3}},
-  "multi-pack-cost-6":{rules:{multiPackCost:6}},
-  "tokens-1-percent":{rules:{tokenBoost:1}},
-  "tokens-5-percent":{rules:{tokenBoost:5}},
-  "special-cap-50":{rules:{specialRateCap:50}},
-  ...Object.fromEntries([3,4,5,6].flatMap(t=>['pips','mult'].map(stat=>[`start-${stat}-${t}`,{trinkets:[`${stat}-${t}`]}]))),
-  "pack-cost-7":{rules:{packCost:7}},
-  "round-reward-3":{rules:{roundReward:3}},
-  "tokens-3-percent":{rules:{tokenBoost:3}},
-  "special-mult-1": {
-    rules: {
-      specialMult: { column: 1, color: 1, number: 1, bomb: 1, coin: 1, row: 1 },
-    },
-  },
-  "special-mult-3": {
-    rules: {
-      specialMult: { column: 3, color: 3, number: 3, bomb: 3, coin: 3, row: 3 },
-    },
-  },
-  "no-specials": { rates: [0, 0, 0, 0, 0, 0], draft:false, rules:{tokenBoost:0} },
-  "double-specials": { rules:{tokenBoost:10} },
-  "no-low-bonus": { lowBonus: false },
-  "no-cascade-bonus": { rules: { cascadeStep: 0 } },
-  "coin-rate-5": { rates: [0, 0, 0, 0, 5, 0] },
-  "reroll-cost-2": { rules: { rerollCost: 2 } },
-  "eight-moves": { moves: 8 },
-  "twelve-moves": { moves: 12 },
-  "targets-minus-20": { targets: DEFAULTS.targets.map(n=>Math.round(n*.8)) },
-  "targets-plus-20": { targets: DEFAULTS.targets.map(n=>Math.round(n*1.2)) },
-  ...Object.fromEntries(
-    ["column", "color", "number", "bomb", "coin", "row"].map((t, i) => [
-      `without-${t}`,
-      { disabledTypes:[t] },
-    ]),
-  ),
+ baseline:{},
+ "special-pips-0":{rules:{specialPips:0}},"special-pips-5":{rules:{specialPips:5}},
+ "equal-rarity":{rules:{specialWeights:Object.fromEntries(TYPES.map(t=>[t,1]))}},
+ "gold-0":{rules:{goldRate:0}},"gold-10":{rules:{goldRate:10}},
+ "shiny-125":{rules:{shinyFactor:1.25}},
+ "quad-x2":{rules:{charmValues:{quad:2}}},"quad-cost-14":{rules:{charmPrices:{quad:14}}},
+ "no-new-trinkets":{disabledTrinkets:TRINKETS.filter(t=>!t.tier).map(t=>t.id)},
+ "targets-minus-20":{targets:DEFAULTS.targets.map(n=>Math.round(n*.8))},
+ "targets-plus-20":{targets:DEFAULTS.targets.map(n=>Math.round(n*1.2))},
+ ...Object.fromEntries(TRINKETS.map(t=>[`start-${t.id}`,{trinkets:[t.id]}])),
+ ...Object.fromEntries(TYPES.map((t,i)=>[`exposure-${t}`,{rates:TYPES.map((_,j)=>i===j?5:0)}])),
+ "ones-build":{trinkets:['convert','ones']},
+ "blast-build":{rates:[2,0,0,2,0,2,0,0],trinkets:['bigbomb','widecolumn','widerow']},
+ "shiny-quad":{rates:[0,0,0,0,0,0,0,5],trinkets:['quad']},
 };
 export function scenarioConfig(name) {
   if (!SCENARIOS[name]) throw Error(`Unknown scenario ${name}`);
